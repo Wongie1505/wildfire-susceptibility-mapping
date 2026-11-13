@@ -1,0 +1,6 @@
+class,code,probability_range,cells,area_ha,area_km2,percent_of_predicted_area
+Low,1,0.00 to 0.33,151136,14183.42,141.83,9.17
+Medium,2,0.33 to 0.66,795389,74643.61,746.44,48.27
+High,3,0.66 to 1.00,701294,65813.23,658.13,42.56
+Total predicted,,,1647819,154640.26,1546.4,100.0
+ROI (boundary),,,1680736,157729.37,1577.29,98.04

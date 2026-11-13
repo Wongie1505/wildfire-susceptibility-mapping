@@ -1,0 +1,149 @@
+PHASE 6: VALIDATION (TEST YEARS, 2016 TO 2024)
+==============================================
+
+Status: COMPLETE. The test years were scored once. The results are recorded in
+decision D19 and interpreted in D20. The main result is unchanged.
+
+
+1. PURPOSE
+----------
+Score the saved models on the test years, which were not used in training, and
+measure whether the model generalises to later years. Also measure which
+predictors matter on the test rows, and how the result depends on the
+non-fire buffer.
+
+
+2. WHAT WAS DONE
+----------------
+1. Scored the three saved models once on the 3,540 test rows (1,770 fire,
+   1,770 non-fire), with a 95 percent interval from resampling the test rows
+   (1,000 resamples).
+2. Computed permutation importance for the Random Forest on the test rows
+   (10 repeats per predictor, AUC as the score).
+3. Retrained the Random Forest at 0, 250 and 1000 m, with the same settings, and
+   scored each on its own test rows. The 500 m result comes from the main table.
+
+Folder: Phase_6_validation/
+Script: phase6_validation.py
+
+
+3. INPUT FILES
+--------------
+Folder data/table/:
+  training_table.csv                    500 m (Phase 4 output, main)
+
+Folder data/sensitivity/:
+  training_table_0m.csv                 Phase 4 run at 0 m
+  training_table_250m.csv               Phase 4 run at 250 m
+  training_table_1000m.csv              Phase 4 run at 1000 m
+
+Folder data/models/ (from Phase 5 outputs/models/):
+  RandomForest.joblib, XGBoost.joblib, LightGBM.joblib
+
+
+4. OUTPUT FILES
+---------------
+Folder outputs/:
+  test_performance.csv       the three models on the test rows
+  importance.csv             permutation importance, Random Forest
+  buffer_sensitivity.csv     Random Forest at each buffer
+
+
+5. RESULTS
+----------
+Test performance (2016 to 2024, n = 3,540):
+
+  Model          Role         AUC (95% interval)           F1     Precision  Recall
+  RandomForest   main         0.571 (0.552 to 0.590)       0.604  0.530      0.701
+  XGBoost        comparison   0.556 (0.539 to 0.575)       0.576  0.530      0.630
+  LightGBM       comparison   0.560 (0.540 to 0.578)       0.576  0.528      0.633
+
+Buffer sensitivity (Random Forest retrained at each buffer):
+
+  Buffer   Training rows   AUC (95% interval)           F1
+  0 m      4,860           0.519 (0.501 to 0.538)       0.511
+  250 m    4,860           0.521 (0.502 to 0.540)       0.520
+  500 m    4,860           0.571 (0.552 to 0.590)       0.604   main
+  1000 m   4,860           0.671 (0.655 to 0.689)       0.689
+
+Permutation importance (Random Forest, test rows, drop in AUC when shuffled):
+
+  Rank  Predictor          Importance   Std
+     1  DEM                0.054        0.007
+     2  settlement_dist    0.025        0.002
+     3  rainfall           0.024        0.005
+     4  roads_dist         0.015        0.003
+     5  rivers_dist        0.013        0.005
+     6  NDMI               0.012        0.002
+     7  NDVI               0.008        0.003
+     8  LULC               0.008        0.001
+     9  aspect_east        0.001        0.001
+    10  LST                0.001        0.002
+    11  aspect_north       0.000        0.001
+    12  slope              0.000        0.001
+
+
+6. WHY IT MATTERS
+-----------------
+- The test AUC is 0.57. That is above chance at 500 m, but the skill is weak.
+  The spatial cross-validation AUC of 0.77 and the random-fold AUC of 0.93 do
+  not describe performance in later years.
+- The buffer result shows the artifact described in D10. AUC rises with buffer
+  size, from 0.52 at 0 m to 0.67 at 1000 m. A larger buffer keeps the
+  non-fire points far from fires, which makes them easier to separate. The
+  1000 m score is inflated by that, not by better prediction.
+- The predictors that matter most are static: the DEM, settlement distance and
+  roads. The time-varying layers contribute little. LST has almost no
+  importance. The model identifies fire-prone terrain and proximity to
+  settlements. It does not track the year-to-year climate signal.
+- Precision (0.53) is below recall (0.70). The model flags more area than the
+  fires that occur, as it did in the spatial cross-validation.
+
+
+7. HOW TO READ THE 0 AND 250 M RESULTS
+--------------------------------------
+Near-chance AUC at 0 and 250 m can mean either of two things:
+(a) the model has little real skill, or (b) the non-fire points include
+unrecorded fires, which pulls AUC toward 0.5. The data cannot separate them.
+The dissertation must state both.
+
+
+8. WHAT THE DISSERTATION SHOULD NOTE
+------------------------------------
+- Report the test AUC of 0.57 with its interval as the main out-of-time result.
+- Report the buffer range (0.52 to 0.67) beside it. Do not report only the
+  highest value.
+- State the distance artifact explicitly, with the coverage numbers from
+  buffer_coverage.csv.
+- Replace the earlier headline figures (0.93 random-fold AUC, 97.8 percent
+  overlap with fires) with the out-of-time result and its context.
+- State that the predictors that matter most are static, and that the
+  model identifies where fires occur rather than when.
+- State that the buffer and the main model were fixed before the test years
+  were scored (D10, D17).
+
+
+9. WHAT THIS PHASE DOES NOT DO
+------------------------------
+- It does not change the model, the buffer or the predictors. Any change is a
+  new analysis and must be declared as one (D22).
+- It does not select the buffer by its test score.
+
+
+10. OPTION FOR A TRULY INDEPENDENT CHECK (not run, needs a decision)
+--------------------------------------------------------------------
+The 2025 fire records (157 events) were excluded from the window. They have
+never been used in any analysis. Scoring the model on them would be a true
+held-out check, but it needs 2025 predictor layers (a GEE export for 2025,
+then Phase 3b), and the choice must be declared before it is run. Decide
+whether to do this, and record the decision in the log first.
+
+
+11. SUCCESS NOTE
+----------------
+Phase 6 is complete. The test years were scored once, each buffer was retrained
+with the same settings, and every result is recorded. The main result is
+unchanged, and the interpretation is in D19 to D22.
+
+Next: Phase 7 (the map and areas). Decide first whether to run the 2025
+independent check (section 10), since it changes what the map can claim.

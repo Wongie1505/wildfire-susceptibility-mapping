@@ -1,0 +1,9 @@
+setting,value
+random seed,42
+non-fire buffer (m),1000
+training period,2002 to 2015
+test period,2016 to 2024
+non-fire to fire ratio,1:1 per period
+spatial block size (m),5000
+buffer detections,same period only
+fire points,representative event location

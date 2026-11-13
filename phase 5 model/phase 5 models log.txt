@@ -1,0 +1,108 @@
+PHASE 5: MODELS (CROSS-VALIDATION ON THE TRAINING YEARS)
+========================================================
+
+Status: COMPLETE. Three models trained and cross-validated on 2002 to 2015 only.
+The test years were not used. The main model (Random Forest) is declared in
+decision D17 before any test scoring.
+
+
+1. PURPOSE
+----------
+Train the three models on the training years, and measure how well each one
+generalises, using cross-validation inside those years. Save the fitted models
+for Phase 6, which scores them once on the test years.
+
+
+2. WHAT WAS DONE
+----------------
+1. Loaded training_table.csv and kept the 2002 to 2015 rows only (4,860 rows,
+   2,430 fire and 2,430 non-fire).
+2. Ran two cross-validation schemes inside the training years, 5 folds each:
+   - spatial block: whole 5 km blocks held out (GroupKFold on block_id)
+   - random: stratified random folds (for comparison only)
+3. Fitted the three models on all training rows and saved them.
+4. Wrote the cross-validation results, the summary, and the settings used.
+
+Folder: Phase_5_models/
+Script: phase5_models.py
+
+
+3. INPUT FILES
+--------------
+Folder data/table/:
+  training_table.csv   (from Phase 4 outputs)
+
+
+4. OUTPUT FILES
+---------------
+Folder outputs/:
+  cross_validation.csv    one row per model, scheme and fold
+  model_performance.csv   mean and standard deviation per model and scheme
+  model_settings.csv      every setting used by each model
+
+Folder outputs/models/:
+  RandomForest.joblib
+  XGBoost.joblib
+  LightGBM.joblib
+
+
+5. SETTINGS
+-----------
+  Random Forest: 300 trees, max depth 20, balanced class weights, seed 42
+  XGBoost:       300 trees, max depth 6, learning rate 0.05, subsample 0.8,
+                 column sample 0.8, seed 42
+  LightGBM:      300 trees, max depth 6, learning rate 0.05, subsample 0.8,
+                 column sample 0.8, seed 42, default leaves
+  Threshold for the classification scores: 0.5
+  No grid search was run. These are fixed values.
+
+
+6. RESULTS (cross-validation, training years)
+---------------------------------------------
+  Model          Scheme          AUC           F1            Precision     Recall
+  RandomForest   random          0.925 +/- 0.009   0.844   0.849   0.839
+  XGBoost        random          0.907 +/- 0.010   0.819   0.829   0.811
+  LightGBM       random          0.902 +/- 0.009   0.814   0.820   0.809
+  RandomForest   spatial block   0.773 +/- 0.033   0.709   0.646   0.791
+  XGBoost        spatial block   0.759 +/- 0.038   0.692   0.639   0.758
+  LightGBM       spatial block   0.761 +/- 0.038   0.695   0.642   0.762
+
+The random and spatial schemes differ by about 0.15 to 0.17 AUC for every
+model.
+
+
+7. WHY IT MATTERS
+-----------------
+- The spatial result is the honest estimate. Random folds let neighbouring
+  fires sit on both sides of a split, which inflates the score. The 0.93 AUC
+  from the earlier analysis came from random folds.
+- The three models are not clearly different on the spatial scheme. Random
+  Forest is highest, but its margin over the others (about 0.015 AUC) is
+  smaller than one standard deviation. This is why the main model was declared
+  in D17 on the training years, not chosen by the test scores.
+- Recall is higher than precision on the spatial scheme (about 0.79 against
+  0.65). In unseen blocks the models flag more area as fire than the fires
+  that occur. Expect the same pattern in the map.
+
+
+8. WHAT THE DISSERTATION SHOULD NOTE
+------------------------------------
+- Report the spatial block cross-validation as the main result (D18).
+- Report the random-split result as an inflated comparison, with the gap
+  explained by spatial autocorrelation.
+- State that the hyperparameters were fixed and that no grid search was run.
+  The earlier draft described a grid search that did not take place.
+- State that Random Forest was declared the main model on the training years
+  before any test scoring (D17).
+- State the cross-validation standard deviations. The differences between
+  models are within them.
+
+
+9. SUCCESS NOTE
+---------------
+Phase 5 is complete. The three models are fitted and saved, and their spatial
+and random cross-validation results are recorded. The test years are untouched.
+
+Next: Phase 6 (validation). Score the saved Random Forest once on the 2016 to
+2024 test rows. Then run the buffer sensitivity (0, 250 and 1000 m) and the
+permutation importance. XGBoost and LightGBM are scored as comparisons only.

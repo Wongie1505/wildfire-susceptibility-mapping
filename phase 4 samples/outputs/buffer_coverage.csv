@@ -1,0 +1,11 @@
+period,buffer_m,boundary_covered_pct,background_available_pct,background_area_km2
+train,0,0.0,100.0,1577.28
+train,250,44.53,55.47,874.89
+train,500,76.73,23.27,367.0
+train,750,89.56,10.44,164.73
+train,1000,94.88,5.12,80.69
+test,0,0.0,100.0,1577.28
+test,250,28.71,71.29,1124.41
+test,500,65.8,34.2,539.4
+test,750,83.4,16.6,261.8
+test,1000,91.13,8.87,139.87

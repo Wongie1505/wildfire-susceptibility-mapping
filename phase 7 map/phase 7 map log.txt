@@ -1,0 +1,120 @@
+PHASE 7: MAP AND AREAS
+======================
+
+Status: SCRIPT WRITTEN. Not yet run. The log is completed after the run.
+
+
+1. PURPOSE
+----------
+Apply the Random Forest to the full study area, using the 2016 to 2024
+predictors, to produce a susceptibility map. Classify it, and measure the area
+in each class. The map is a relative susceptibility surface (decision D9, D21).
+It is not a probability of fire in a given year.
+
+
+2. WHAT THE SCRIPT DOES
+-----------------------
+1. Loads the 12 predictors in the same order used to train the model in Phase 5.
+2. Keeps only cells inside the ROI (Chikangawa boundary, D16) with all 12
+   predictors valid.
+3. Predicts a susceptibility score for each of those cells, in chunks of
+   500,000.
+4. Classifies the score: low below 0.33, medium 0.33 to below 0.66, high 0.66
+   and above (D23).
+5. Writes the score and the class as GeoTIFFs on the DEM grid.
+6. Calculates the area of each class in hectares and square kilometres.
+7. Copies the four period predictors (2016 to 2024) to outputs/predictors/.
+
+Folder: Phase_7_map/
+Script: phase7_map.py
+
+
+3. INPUT FILES
+--------------
+Folder data/models/:
+  RandomForest.joblib                       (Phase 5 outputs/models/)
+
+Folder data/period/ (Phase 3b data/aligned/, 4 files):
+  viphya_ndvi_2016_2024.tif
+  viphya_ndmi_2016_2024.tif
+  viphya_lst_2016_2024.tif
+  viphya_rainfall_2016_2024.tif
+
+Folder data/fixed/ (Phase 1b data/aligned/, 8 files):
+  Rivers_Distances.tif, Roads_distances.tif, Settlement_Distance.tif,
+  Viphya_Aspect_eastness.tif, Viphya_Aspect_northness.tif,
+  Viphya_DEM.tif, Viphya_LULC.tif, Viphya_Slope.tif
+
+Folder data/boundary/:
+  Chikangawa_forest.shp, .dbf, .shx, .prj, .cpg, .qmd
+
+
+4. OUTPUT FILES
+---------------
+Folder outputs/:
+  rf_probability_2016_2024.tif   susceptibility score, float32, nodata -9999
+  rf_class_2016_2024.tif         class: 1 low, 2 medium, 3 high, nodata 0
+  area_table.csv                 area per class, ha and km2
+  prediction_summary.csv         cell size, cell area, cell counts, score range
+
+Folder outputs/predictors/:
+  viphya_ndvi_2016_2024.tif
+  viphya_ndmi_2016_2024.tif
+  viphya_lst_2016_2024.tif
+  viphya_rainfall_2016_2024.tif
+
+
+5. RESULTS
+----------
+Area per class, 2016 to 2024 predictors (from area_table.csv):
+
+  Class    Score range    Cells       Area (ha)    Area (km2)   Share of predicted
+  Low      0.00 to 0.33   151,136     14,183.42    141.83       9.17 percent
+  Medium   0.33 to 0.66   795,389     74,643.61    746.44       48.27 percent
+  High     0.66 to 1.00   701,294     65,813.23    658.13       42.56 percent
+  Total predicted         1,647,819   154,640.26   1,546.40     100.00 percent
+  ROI (boundary)          1,680,736   157,729.37   1,577.29     98.04 percent of ROI predicted
+
+Prediction summary (from prediction_summary.csv):
+  Cell size 30.63 m, cell area 938.45 m2
+  Cells not predicted inside the ROI: 32,917 (2.0 percent), where at least one
+  predictor is missing, mostly at the edges
+  Score range: 0.047 to 1.000, mean 0.608
+
+Note on the mean score: the training sample was balanced (50 percent fire), so
+a neutral predictor set would give a mean near 0.5. The mean of 0.61 reflects
+the 2016 to 2024 conditions pushing scores up across the landscape. See D27.
+
+
+6. WHY IT MATTERS
+-----------------
+- Area per class is the number a forest manager will use. It is only as good
+  as the model. With a test AUC of 0.57 (D19), the map should be presented as
+  a relative ranking of areas, not as a precise fire forecast.
+- The class limits and the grid are fixed in the script, so the figures can
+  be reproduced exactly.
+
+
+7. WHAT THE DISSERTATION SHOULD NOTE
+------------------------------------
+- Map source: the Random Forest trained on 2002 to 2015 (D17), applied to the
+  2016 to 2024 predictors (D9).
+- Susceptibility score, not probability (D21).
+- Class limits: 0.33 and 0.66 (D23).
+- Cell size 30.63 m, cell area 938.45 m2. State this in the area table caption.
+- Study area: the Chikangawa ROI, 1,577.3 km2 (D16). Areas are reported as a
+  share of the predicted area and of the ROI.
+- The map and class figures in the author's earlier image set are from the old
+  model and must not be used (D24). Use only figures from these outputs.
+- Map titles and legend labels follow D25.
+
+
+8. SUCCESS NOTE
+---------------
+Phase 7 is complete when the two GeoTIFFs open in QGIS on the DEM grid, the
+area table adds up to the predicted area, and the four predictor copies are in
+outputs/predictors/.
+
+Next: Phase 8 (overlay and figures). Historical fire agreement, annual and
+monthly counts, and the hotspot density surface. The fire agreement is an
+in-sample overlay and must be labelled as such (D24).

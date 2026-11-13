@@ -1,0 +1,138 @@
+PHASE 3: PERIOD MEDIANS (GEE EXPORT)
+====================================
+
+Status: COMPLETE. Eight files exported from Google Earth Engine and downloaded.
+Resampling to the DEM grid is in Phase 3b.
+
+
+1. PURPOSE
+----------
+The model trains on 2002 to 2015 and tests on 2016 to 2024. Four predictors
+change with time (NDVI, NDMI, LST and rainfall), so each needs one layer per
+period. The earlier full-period layers (2002 to 2024) cannot be used for the
+split, since they contain the test years in their medians. This phase exports
+the period-specific layers. The DEM, slope, aspect, distance layers and LULC
+are fixed in time and are not exported again.
+
+
+2. WHAT WAS DONE
+----------------
+One GEE script (period_medians_all_eight.js) queues eight exports to the
+Google Drive folder Viphya_Data. Each export is clipped to the Chikangawa
+boundary and written in EPSG:32736 at its native resolution. The files were
+then downloaded to this phase's outputs folder.
+
+Study boundary used in GEE: projects/rainfallpatterns/assets/Chikangawa_forest
+
+
+3. INPUT COLLECTIONS (GEE)
+--------------------------
+  NDVI:      MODIS/061/MOD13A3, band NDVI (scale 0.0001)
+  NDMI:      MODIS/061/MOD09A1, bands sur_refl_b02 (NIR) and sur_refl_b06
+             (SWIR), scale 0.0001, clear-sky mask from StateQA bits 0 and 1
+  LST:       MODIS/061/MOD11A2, band LST_Day_1km (scale 0.02, minus 273.15)
+  Rainfall:  UCSB-CHG/CHIRPS/DAILY, band precipitation
+
+Dates and filters: July to December only, 1 July to 31 December in each year.
+Period 1: 2002-01-01 to 2015-12-31. Period 2: 2016-01-01 to 2024-12-31.
+
+
+4. PROCESSING PER LAYER
+-----------------------
+  NDVI:      median of the July to December composites
+  NDMI:      NDMI per clear-sky image, then median
+  LST:       zero values masked (no data), then median, then converted to Celsius
+  Rainfall:  mean daily rainfall across the period, times 184 days
+
+
+5. OUTPUT FILES (folder outputs/)
+---------------------------------
+  Name                             Statistic    GEE scale   CRS
+  viphya_ndvi_2002_2015.tif        median       500 m       EPSG:32736
+  viphya_ndvi_2016_2024.tif        median       500 m       EPSG:32736
+  viphya_ndmi_2002_2015.tif        median       500 m       EPSG:32736
+  viphya_ndmi_2016_2024.tif        median       500 m       EPSG:32736
+  viphya_lst_2002_2015.tif         median       1000 m      EPSG:32736
+  viphya_lst_2016_2024.tif         median       1000 m      EPSG:32736
+  viphya_rainfall_2002_2015.tif    mean seasonal 5566 m     EPSG:32736
+  viphya_rainfall_2016_2024.tif    mean seasonal 5566 m     EPSG:32736
+
+Check on download (from QGIS, Layer Properties, Information):
+  Name                             Pixel size      Width x Height   Valid %   Checked
+  viphya_ndvi_2002_2015.tif        500 x 500 m     76 x 158         55.19     Yes
+  viphya_ndvi_2016_2024.tif        500 x 500 m     76 x 158         55.19     Yes
+  viphya_ndmi_2002_2015.tif        500 x 500 m     76 x 158         55.19     Yes
+  viphya_ndmi_2016_2024.tif        500 x 500 m     76 x 158         55.19     Yes
+  viphya_lst_2002_2015.tif         1000 x 1000 m   38 x 80          56.91     Yes
+  viphya_lst_2016_2024.tif         1000 x 1000 m   38 x 80          56.91     Yes
+  viphya_rainfall_2002_2015.tif    5566 x 5566 m   8 x 15           64.17     Yes
+  viphya_rainfall_2016_2024.tif    5566 x 5566 m   8 x 15           64.17     Yes
+
+Origins (top left, EPSG:32736):
+  NDVI and NDMI:  575000, 8727500
+  LST:            575000, 8728000
+  Rainfall:       573298, 8727488
+
+Observed values (from QGIS statistics):
+  Layer                        Minimum    Maximum    Mean      Std dev
+  NDVI 2002 to 2015            0.3561     0.8407     0.6509    0.0785
+  NDVI 2016 to 2024            0.3577     0.8327     0.6331    0.0749
+  NDMI 2002 to 2015            -0.1462    0.3482     0.0956    0.0878
+  NDMI 2016 to 2024            -0.1495    0.3496     0.0772    0.0830
+  LST 2002 to 2015 (C)         21.73      31.40      26.27     1.64
+  LST 2016 to 2024 (C)         23.11      31.56      27.13     1.27
+  Rainfall 2002 to 2015 (mm)   250.39     415.93     342.75    38.46
+  Rainfall 2016 to 2024 (mm)   211.64     377.70     309.81    39.47
+
+Notes on these numbers:
+- The valid share differs by layer. The vegetation layers (55.19 percent)
+  and LST (56.91 percent) use different grids. Rainfall (64.17 percent)
+  uses 5.5 km cells, so it covers the boundary with fewer, larger cells.
+  Phase 3b must handle this, and the dissertation must state it.
+- The test period is drier and warmer than the training period on every
+  layer: NDMI mean falls from 0.096 to 0.077, LST rises from 26.3 to 27.1 C,
+  and rainfall falls from 343 to 310 mm. The model is tested on conditions
+  it did not see in training. Say so in the discussion, since it explains
+  some of any drop in test performance.
+- The NDVI and NDMI values match the earlier full-period ranges, which is a
+  sanity check that the exports are correct.
+
+
+6. WHY THESE CHOICES
+--------------------
+- Period split: the test years must not appear in any training predictor.
+  Splitting the fire labels alone would leave the 2016 to 2024 years inside
+  the training predictors.
+- LST zeros: MOD11A2 uses zero for no data. Scaling zero gives -273 C and
+  pulls the median down. The earlier LST layers may have this error, so they
+  are superseded.
+- Native resolution: the GEE export keeps the source resolution. Resampling
+  to the 30.63 m DEM grid is done in Python (Phase 3b), so every layer is
+  resampled the same way and the method can be recorded in one place.
+- Rainfall as a mean: a seasonal total is a sum over days, so the mean of
+  daily values times 184 is the correct statistic. Medians are used for the
+  other three layers, so the statistic differs between layers.
+
+
+7. WHAT THE DISSERTATION SHOULD NOTE
+------------------------------------
+- Period-specific predictors: NDVI, NDMI, LST and rainfall are medians or
+  means over 2002 to 2015 (training) and 2016 to 2024 (testing).
+- Source resolutions: NDVI and NDMI 500 m (MODIS), LST 1 km (MODIS MOD11A2,
+  daytime only), rainfall about 5.5 km (CHIRPS, mean seasonal total).
+- LST is daytime only. Night LST was not used.
+- Rainfall statistic: mean seasonal total, which differs from the medians used
+  for the vegetation and LST layers.
+- Superseded layers: the earlier full-period LST and rainfall files
+  (viphya_lst_30m, viphya_rainfall) are not used in the model. Say so in the
+  methods to explain the change from the proposal.
+
+
+8. SUCCESS NOTE
+---------------
+Phase 3 is complete. All eight files are in outputs/, each opened in QGIS
+with its pixel size, dimensions and valid share recorded in section 5. Every
+file opens and covers the boundary. Phase 3b uses these eight files as its
+input.
+
+Next: Phase 3b (resample the eight files to the 30.63 m DEM grid).

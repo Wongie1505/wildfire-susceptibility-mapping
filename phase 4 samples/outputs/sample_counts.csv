@@ -1,0 +1,15 @@
+period,step,count
+train,events in period,2461
+train,events with all predictors valid,2430
+train,non-fire candidates drawn,200000
+train,non-fire rejected: outside boundary,93364
+train,non-fire rejected: within 1000 m of a detection,101101
+train,non-fire rejected: predictor missing,386
+train,non-fire points kept,2430
+test,events in period,1783
+test,events with all predictors valid,1770
+test,non-fire candidates drawn,200000
+test,non-fire rejected: outside boundary,93590
+test,non-fire rejected: within 1000 m of a detection,97125
+test,non-fire rejected: predictor missing,910
+test,non-fire points kept,1770

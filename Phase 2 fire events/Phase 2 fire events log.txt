@@ -1,0 +1,146 @@
+PHASE 2: FIRE EVENTS
+====================
+
+Status: COMPLETE. The first run included 2001 and 2025, which are outside the
+study window. The script now keeps 2002 to 2024 only. Re-run once to confirm
+the corrected totals in section 5.
+
+
+1. PURPOSE
+----------
+Turn the raw MODIS fire detections into fire events, one per event, with
+every reduction counted. The events are the labels for the model.
+
+
+2. WHAT WAS DONE
+----------------
+1. Read the raw archive and build a timestamp from the date and time.
+2. Keep July to December.
+3. Keep 2002 to 2024 (added after the first run).
+4. Keep confidence 75 and above.
+5. Keep detections inside the Chikangawa boundary (EPSG:32736).
+6. Group detections within 1000 m and 4 days of each other into one event.
+   Grouping is chained: if A is close to B and B is close to C, all three
+   form one event.
+7. Keep one detection per event: highest confidence, earliest time on ties.
+8. Write a per-year table with a train or test label.
+
+Folder: Phase_2_fire_events/
+Script: phase2_fire_events.py
+
+
+3. INPUT FILES
+--------------
+Folder data/raw/ (6 files):
+  fire_archive_M-C61_718732.shp
+  fire_archive_M-C61_718732.dbf
+  fire_archive_M-C61_718732.shx
+  fire_archive_M-C61_718732.prj
+  fire_archive_M-C61_718732.cpg
+  Readme.txt
+
+Folder data/boundary/ (6 files):
+  Chikangawa_forest.shp
+  Chikangawa_forest.dbf
+  Chikangawa_forest.shx
+  Chikangawa_forest.prj
+  Chikangawa_forest.cpg
+  Chikangawa_forest.qmd
+
+
+4. OUTPUT FILES
+---------------
+Folder outputs/:
+  fire_count_table.csv          count at each step
+  fire_events.csv               one row per event (event_id, first and last
+                                date, number of detections, max confidence,
+                                representative location)
+  fire_detections_filtered.csv  every detection that passed the filters,
+                                tagged with its event_id
+  fire_events_by_year.csv       per-year detections and events with the
+                                train or test label
+
+
+5. RESULTS
+----------
+Count table, first run (included 2001 and 2025):
+
+  18,548  raw records
+  18,478  July to December
+   9,649  confidence 75 or above
+   9,532  inside boundary
+   4,442  events (1000 m and 4 days, chained)
+   4,442  one detection per event
+
+Per-year table, first run:
+
+  Year  Detections  Events  Period
+  2001          64      41  train  (outside window)
+  2002         218     111  train
+  2003         247     154  train
+  2004          89      75  train
+  2005         602     205  train
+  2006         189      79  train
+  2007         182      93  train
+  2008         502     215  train
+  2009         465     163  train
+  2010         700     218  train
+  2011         419     169  train
+  2012         769     266  train
+  2013         671     249  train
+  2014         474     209  train
+  2015         730     255  train
+  2016         579     297  test
+  2017         292     133  test
+  2018         221     148  test
+  2019         329     195  test
+  2020         331     195  test
+  2021         299     194  test
+  2022         274     207  test
+  2023         387     228  test
+  2024         269     186  test
+  2025         230     157  test   (outside window)
+
+Corrected totals for 2002 to 2024, from the table above:
+  Detections: 9,238 (train 2002 to 2015: 6,257; test 2016 to 2024: 2,981)
+  Events:     4,244 (train 2002 to 2015: 2,461; test 2016 to 2024: 1,783)
+
+These are the expected numbers from the per-year table. Confirm them after
+the re-run. Events are grouped across the whole archive, so an event that
+spans 31 December 2024 and 1 January 2025 could change slightly.
+
+
+6. WHY IT MATTERS
+-----------------
+- The model trains on 2002 to 2015 and tests on 2016 to 2024. Fires from
+  2001 and 2025 belong to neither period, so they must not enter the labels
+  unless they are kept deliberately as a separate check.
+- The events, not the raw detections, are the labels. One large fire
+  recorded as 40 detections should count once.
+- The test period has about 198 events a year (1,783 over 9 years), and the
+  training period about 176 (2,461 over 14 years). The rate does not jump
+  sharply at the 2015 to 2016 boundary, so the test years are not a
+  different regime from the training years.
+
+
+7. WHAT THE DISSERTATION SHOULD NOTE
+------------------------------------
+- Event rule: 1000 m and 4 days, chained, using timestamps. An earlier run
+  of the same rule, which grouped by whole days, gave 4,375 events. Use the
+  timestamp version in the text and say so.
+- Confidence threshold: 75 and above, on the MODIS confidence value.
+- Boundary test: detection points inside the boundary polygon. Points on
+  the edge are not counted.
+- Period: 2002 to 2015 for training, 2016 to 2024 for testing. The 2001 and
+  2025 records are excluded and are not used anywhere in the model.
+
+
+8. SUCCESS NOTE
+---------------
+Phase 2 produces a count table, an event table, a detection table and a
+per-year table, all with exact file names in outputs/. The counts reduce in
+the order listed in section 5. The window is 2002 to 2024, with training
+2002 to 2015 and testing 2016 to 2024.
+
+Next: Phase 3 (export the eight period medians from GEE), then Phase 3b
+(resample them to the DEM grid).

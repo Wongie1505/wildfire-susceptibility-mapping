@@ -1,0 +1,150 @@
+PHASE 4: SAMPLING
+=================
+
+Status: COMPLETE. Balanced training and test tables with a 500 m non-fire
+buffer. Next: Phase 5 (validation).
+
+
+1. PURPOSE
+----------
+Turn the fire events and the predictor layers into labelled sample points: one
+row per point, with a label (1 for fire, 0 for non-fire) and the 12 predictor
+values at that point. The model is trained and tested on these rows.
+
+
+2. WHAT WAS DONE
+----------------
+1. Loaded the fixed layers and the period layers into memory, once each.
+2. For each period, kept only the fire events whose location has all 12
+   predictors valid.
+3. Drew random points inside the Chikangawa boundary, in batches of 200,000,
+   with seed 42.
+4. Rejected any point within 500 m of a detection from the same period.
+5. Rejected any point with a missing predictor.
+6. Kept points until the non-fire count equalled the fire count for that period.
+7. Assigned each row a 5 km spatial block ID for the cross-validation.
+8. Checked that each period is balanced.
+
+Folder: Phase_4_samples/
+Script: phase4_sampling.py
+Checking script (run first, separately): buffer_coverage.py
+
+
+3. INPUT FILES
+--------------
+Folder data/fire/ (from Phase 2 outputs):
+  fire_events.csv
+  fire_detections_filtered.csv
+
+Folder data/boundary/ (from Phase 2 data/boundary):
+  Chikangawa_forest.shp, .dbf, .shx, .prj, .cpg, .qmd
+
+Folder data/period/ (from Phase 3b data/aligned, 8 files):
+  viphya_ndvi_2002_2015.tif, viphya_ndvi_2016_2024.tif
+  viphya_ndmi_2002_2015.tif, viphya_ndmi_2016_2024.tif
+  viphya_lst_2002_2015.tif,  viphya_lst_2016_2024.tif
+  viphya_rainfall_2002_2015.tif, viphya_rainfall_2016_2024.tif
+
+Folder data/fixed/ (from Phase 1b data/aligned, 8 files):
+  Rivers_Distances.tif, Roads_distances.tif, Settlement_Distance.tif,
+  Viphya_Aspect_eastness.tif, Viphya_Aspect_northness.tif,
+  Viphya_DEM.tif, Viphya_LULC.tif, Viphya_Slope.tif
+
+
+4. OUTPUT FILES
+---------------
+Folder outputs/:
+  training_table.csv      8,400 rows: one per point, with period, label,
+                          event_id (fire only), date (fire only), x, y, the
+                          12 predictors, block_id, point_id
+  sample_counts.csv       the count at each step, per period
+  sampling_settings.csv   seed, buffer, periods, ratio, block size
+
+
+5. SETTINGS
+-----------
+  Random seed:              42
+  Non-fire buffer:          500 m, same-period detections only
+  Training period:          2002 to 2015
+  Test period:              2016 to 2024
+  Non-fire to fire ratio:   1:1 per period
+  Spatial block size:       5 km
+  Fire points:              representative location of each event
+
+
+6. RESULTS
+----------
+Count table (from sample_counts.csv):
+
+  Step                                         Training    Test
+  Events in period                                2,461    1,783
+  Events with all predictors valid                2,430    1,770
+  Non-fire candidates drawn                     200,000  200,000
+  Rejected: outside boundary                     93,364   93,590
+  Rejected: within 500 m of a detection          81,889   70,333
+  Rejected: predictor missing                     1,118    1,568
+  Non-fire points kept                            2,430    1,770
+
+Final table:
+  Training: 2,430 fire, 2,430 non-fire
+  Test:     1,770 fire, 1,770 non-fire
+  Total:    8,400 rows
+
+Cross-check against buffer_coverage.csv:
+  Share of the inside-boundary candidates kept, training: 23.2 percent
+  (coverage table: 23.3 percent). Test: 33.9 percent (coverage table: 34.2
+  percent). The sampler matches the coverage check.
+
+
+7. WHY IT MATTERS
+-----------------
+- The design is balanced. A model trained on a 1:1 table is not pushed toward
+  the majority class.
+- The 500 m buffer keeps the non-fire points away from recorded fires. It
+  also means the model can partly learn distance to fire from where the samples
+  sit. Phase 5 tests this.
+- Each period uses only its own detections for the buffer, so no test-period
+  fire shapes a training sample.
+- The 5 km blocks are stored now, so the cross-validation in Phase 5 can keep
+  neighbouring points in the same fold.
+
+
+8. WHAT THE DISSERTATION SHOULD NOTE
+------------------------------------
+- Buffer: 500 m, chosen from buffer_coverage.csv before any model result. The
+  decision is in the project decisions log (D10).
+- Distance bias: the non-fire points are at least 500 m from a detection, so
+  the model may partly learn distance to fire. Report the 0, 250 and 1000 m
+  sensitivity runs in Phase 5.
+- Superseded run: the earlier 1000 m run rejected 95 percent of training
+  candidates. Its counts are kept as the extreme sensitivity case.
+- Lost fire events: 31 events in training and 13 in testing were dropped
+  because a predictor was missing at their location. That is 1.3 and 0.7
+  percent. Check where they are before the write-up (see section 9).
+- Background area: the non-fire points come from the whole 1,577 km2
+  boundary, not only the plantation (about 535 km2). This is an open decision
+  (O2 in the decisions log).
+- Label noise: MODIS locates fires to about 1 km, so some non-fire points may
+  sit on unrecorded fires. This is a limitation of the data, not something the
+  sampler can remove.
+
+
+9. OPEN ITEMS
+-------------
+- Lost fire events: find the 31 training and 13 test events with a missing
+  predictor. Check whether they cluster at the boundary edge or in one area,
+  and whether they share a predictor that is missing. If they cluster, the
+  sample is not representative of the edges, and the dissertation must say so.
+- Background restriction (O2): decide whether non-fire points should be
+  limited to the plantation or forest area.
+- LULC year (O1): confirm the year the LULC layer was built from.
+
+
+10. SUCCESS NOTE
+----------------
+Phase 4 is complete. training_table.csv has a balanced 2,430 and 2,430 for
+training and 1,770 and 1,770 for testing. The non-fire share of the boundary
+matches the coverage check. All predictors are valid at every row.
+
+Next: Phase 5 (validation). Phase 5 runs the cross-validation, the buffer
+sensitivity (0, 250 and 1000 m), and the permutation importance.

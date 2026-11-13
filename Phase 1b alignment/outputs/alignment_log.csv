@@ -1,0 +1,13 @@
+file,action,method,nodata
+Rivers_Distances.tif,resampled from 29.9872 x 29.9872 m,bilinear,-9999.0
+Roads_distances.tif,resampled from 29.9872 x 29.9872 m,bilinear,-9999.0
+Settlement_Distance.tif,resampled from 29.9872 x 29.9872 m,bilinear,-9999.0
+Viphya_Aspect_eastness.tif,copied (already on reference grid),,
+Viphya_Aspect_northness.tif,copied (already on reference grid),,
+Viphya_DEM.tif,copied (already on reference grid),,
+viphya_lst.tif,resampled from 29.9921 x 30.0038 m,bilinear,-9999.0
+Viphya_LULC.tif,resampled from 30.0071 x 30.0003 m,nearest,255
+viphya_ndmi.tif,resampled from 30.0000 x 29.9962 m,bilinear,-9999.0
+viphya_ndvi.tif,resampled from 29.9921 x 30.0038 m,bilinear,-9999.0
+viphya_rainfall.tif,resampled from 29.9921 x 30.0038 m,bilinear,-9999.0
+Viphya_Slope.tif,copied (already on reference grid),,

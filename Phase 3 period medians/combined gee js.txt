@@ -1,0 +1,119 @@
+// this was labeled lst final
+
+// ================================================
+// LST - Land Surface Temperature
+// Viphya Plantation
+// MODIS MOD11A2 | Jul-Dec median | 2002-2024
+// ================================================
+
+// var viphya = ee.FeatureCollection("projects/your-project/assets/viphya_boundary");
+// var roi = viphya.geometry();
+
+var lst = ee.ImageCollection("MODIS/061/MOD11A2")
+  .filter(ee.Filter.calendarRange(7, 12, 'month'))
+  .filter(ee.Filter.date('2002-01-01', '2025-01-01'))
+  .select('LST_Day_1km')
+  .median()
+  .multiply(0.02)        // apply scale factor -> Kelvin
+  .subtract(273.15)      // convert to Celsius
+  .rename('LST')
+  .clip(roi);
+
+// Visualize - should show warmer temps in lower/drier areas
+Map.centerObject(roi, 10);
+Map.addLayer(lst, {min: 15, max: 35, palette: ['blue', 'yellow', 'red']}, 'LST (Celsius)');
+
+// Export
+Export.image.toDrive({
+  image: lst,
+  description: 'viphya_lst_30m',
+  folder: 'Viphya_Data',
+  fileNamePrefix: 'viphya_lst_30m',
+  scale:30,          // LST is 1km resolution, keep it native
+  region: roi,
+  crs: 'EPSG:32736',
+  maxPixels: 1e10
+});
+
+
+// this was named lst_30m Run on 27 march while the one above was run on 26 march
+// ================================================
+// LST - Land Surface Temperature
+// Viphya Plantation
+// MODIS MOD11A2 | Jul-Dec median | 2002-2024
+// Resampled to 30m
+// ================================================
+
+// var viphya = ee.FeatureCollection("projects/your-project/assets/viphya_boundary");
+// var roi = viphya.geometry();
+
+var lst = ee.ImageCollection("MODIS/061/MOD11A2")
+  .filter(ee.Filter.calendarRange(7, 12, 'month'))
+  .filter(ee.Filter.date('2002-01-01', '2025-01-01'))
+  .select('LST_Day_1km')
+  .median()
+  .multiply(0.02)        // Kelvin
+  .subtract(273.15)      // Celsius
+  .rename('LST')
+  .clip(roi);
+
+// 🔥 KEY STEP: resample to 30m
+var lst_30m = lst
+  .resample('bilinear')   // smoother than nearest neighbor
+  .reproject({
+    crs: 'EPSG:32736',
+    scale: 30
+  });
+
+// Visualize
+Map.centerObject(roi, 10);
+Map.addLayer(lst_30m, {min: 15, max: 35, palette: ['blue', 'yellow', 'red']}, 'LST 30m');
+
+// Export
+Export.image.toDrive({
+  image: lst_30m,
+  description: 'viphya_lst_30m',
+  folder: 'Viphya_Data',
+  fileNamePrefix: 'viphya_lst_30m',
+  scale: 30,               // 🔥 now 30m
+  region: roi,
+  crs: 'EPSG:32736',
+  maxPixels: 1e13
+});
+
+
+// rainfall
+// ================================================
+// RAINFALL - Seasonal Total
+// Viphya Plantation
+// CHIRPS Daily | Jul-Dec mean daily x 184 days
+// 2002-2024
+// ================================================
+
+// var viphya = ee.FeatureCollection("projects/your-project/assets/viphya_boundary");
+// var roi = viphya.geometry();
+
+var rainfall = ee.ImageCollection("UCSB-CHG/CHIRPS/DAILY")
+  .filter(ee.Filter.calendarRange(7, 12, 'month'))
+  .filter(ee.Filter.date('2002-01-01', '2025-01-01'))
+  .select('precipitation')
+  .mean()               // mean daily rainfall across all Jul-Dec days
+  .multiply(184)        // multiply by number of days in Jul-Dec 
+  .rename('Rainfall')   // gives you total seasonal rainfall in mm
+  .clip(roi);
+
+// Visualize - drier areas should appear lighter
+Map.centerObject(roi, 10);
+Map.addLayer(rainfall, {min: 200, max: 800, palette: ['red', 'yellow', 'blue']}, 'Rainfall (mm)');
+
+// Export
+Export.image.toDrive({
+  image: rainfall,
+  description: 'viphya_rainfall',
+  folder: 'Viphya_Data',
+  fileNamePrefix: 'viphya_rainfall',
+  scale: 500,          // CHIRPS native resolution is ~5.5km, keep it honest //resampled manually.
+  region: roi,
+  crs: 'EPSG:32736',
+  maxPixels: 1e10
+});

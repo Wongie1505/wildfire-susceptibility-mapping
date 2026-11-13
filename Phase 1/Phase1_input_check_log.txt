@@ -1,0 +1,117 @@
+PHASE 1: INPUT CHECK
+====================
+
+Status: COMPLETE. Boundary and fire archive pass. Predictor grid problems
+handled in Phase 1b. NDVI and NDMI handled in Phase 1c.
+
+
+1. PURPOSE
+----------
+Before any analysis, confirm that every raw input opens, has a usable
+coordinate system, overlaps the study boundary, and has the expected
+pixel size. Record the result for every file, so a later problem can be
+traced back to its source.
+
+
+2. WHAT WAS DONE
+----------------
+The script phase1_input_check.py was run on the input folder. For each file
+it recorded: CRS, width, height, pixel size, extent, nodata value, data type,
+share of nodata pixels, whether the grid matches the reference DEM, and whether
+the raster overlaps the boundary. The boundary area and the fire-record checks
+(date range, instruments, confidence values, detections inside the boundary)
+were recorded in the same report.
+
+Folder: Phase_1_inputs/
+Script: phase1_input_check.py
+Output: outputs/inputs_check.csv
+
+
+3. INPUT FILES
+--------------
+Fire archive (folder data/raw/), 6 files:
+  fire_archive_M-C61_718732.shp
+  fire_archive_M-C61_718732.dbf
+  fire_archive_M-C61_718732.shx
+  fire_archive_M-C61_718732.prj
+  fire_archive_M-C61_718732.cpg
+  Readme.txt
+
+Study boundary (folder data/raw/), 6 files:
+  Chikangawa_forest.shp
+  Chikangawa_forest.dbf
+  Chikangawa_forest.shx
+  Chikangawa_forest.prj
+  Chikangawa_forest.cpg
+  Chikangawa_forest.qmd
+
+Predictor rasters (folder data/predictors/), 12 files:
+  Rivers_Distances.tif
+  Roads_distances.tif
+  Settlement_Distance.tif
+  Viphya_Aspect_eastness.tif
+  Viphya_Aspect_northness.tif
+  Viphya_DEM.tif
+  viphya_lst.tif
+  Viphya_LULC.tif
+  viphya_ndmi.tif       (replaced in Phase 1c, see that record)
+  viphya_ndvi.tif
+  viphya_rainfall.tif
+  Viphya_Slope.tif
+
+Note: the NDVI and NDMI files checked in this phase came from the older
+Landsat-based set and were replaced. The current versions are described in
+the Phase 1b and Phase 1c records.
+
+
+4. RESULTS
+----------
+Boundary:      PASS (area_ha and area_km2 are in inputs_check.csv)
+Fire archive:  PASS (date range, instruments, non-numeric confidence values
+               and detections inside the boundary are in the note column)
+
+Predictors: 4 PASS, 8 FAIL (12 in total)
+  PASS (4):  Viphya_Aspect_eastness.tif, Viphya_Aspect_northness.tif,
+             Viphya_DEM.tif, Viphya_Slope.tif
+  FAIL (8):  Rivers_Distances.tif, Roads_distances.tif,
+             Settlement_Distance.tif, viphya_lst.tif, Viphya_LULC.tif,
+             viphya_ndmi.tif, viphya_ndvi.tif, viphya_rainfall.tif
+
+All 8 failures had the same cause: the grid (pixel size and origin) differed
+from the reference DEM. The CRS (EPSG:32736) was correct on all 12 files, and
+all 12 overlapped the boundary.
+
+
+5. WHY IT MATTERS
+-----------------
+Every raster in the model must share one grid. If the grids differ, each
+sample point reads a value from a slightly different place in each layer,
+and the predictor table becomes inconsistent. The failures were fixed in
+Phase 1b and Phase 1c rather than silently accepted.
+
+
+6. WHAT THE DISSERTATION SHOULD NOTE
+------------------------------------
+- Describe the input check as a documented step (name the script and the
+  output file). It shows that the study boundary and the fire archive were
+  verified before modelling.
+- Report the input layers as delivered (native pixel sizes):
+    DEM, slope, aspect:        30.63 m
+    distances:                 about 29.99 m
+    LULC:                      about 30.00 m
+    LST:                       a 30 m export of the 1 km MODIS MOD11A2 product
+    rainfall:                  a 30 m export of the 5 km CHIRPS product
+    NDVI:                      MODIS MOD13A3, 500 m
+    NDMI:                      MODIS MOD09A1, 500 m
+- State that the CRS was EPSG:32736 (WGS 84 / UTM 36S) for all layers.
+
+
+7. SUCCESS NOTE
+---------------
+Phase 1 is complete. Every input file was opened and recorded in
+outputs/inputs_check.csv. The CRS was correct everywhere, and every predictor
+overlapped the boundary. The grid mismatches were resolved in Phase 1b and
+Phase 1c.
+
+Next: Phase 1b (see Phase1b_grid_alignment_log.txt) and Phase 1c
+(see Phase1c_ndmi_alignment_log.txt).

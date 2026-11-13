@@ -1,0 +1,2 @@
+file,source_file,source_resolution_m,output_resolution_m,input_valid_pct,resampling,same_grid_as_reference,nodata_set,output_nodata_share_pct,valid_min,valid_max,values_within_minus1_to_1,status
+viphya_ndmi.tif,viphya_ndmi_modis.tif,500.0,30.6342,55.19,bilinear,True,True,44.17,-0.1435,0.3051,True,PASS

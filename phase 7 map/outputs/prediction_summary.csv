@@ -1,0 +1,2 @@
+cell_size_m,cell_area_m2,roi_cells,predicted_cells,not_predicted_cells_in_roi,prob_min,prob_max,prob_mean
+30.6342,938.45,1680736,1647819,32917,0.047,1.0,0.6077

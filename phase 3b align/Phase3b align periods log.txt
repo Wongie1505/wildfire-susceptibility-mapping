@@ -1,0 +1,131 @@
+PHASE 3b: ALIGN THE PERIOD LAYERS
+=================================
+
+Status: COMPLETE (PASS, all 8 layers). These are the clean predictors for the
+time-varying variables. Phase 4 uses them.
+
+
+1. PURPOSE
+----------
+Phase 3 gave eight period-specific layers at their native resolutions (500 m,
+1000 m, 5566 m) in their own grids. The model needs every predictor on the
+same 30.63 m DEM grid, with nodata set and values checked. This phase does
+that, and leaves a clean aligned folder for Phase 4.
+
+
+2. WHAT WAS DONE
+----------------
+1. Copied the eight Phase 3 exports into data/input/.
+2. Cleared any old .tif files in data/aligned/, so the folder holds only this run.
+3. For each layer:
+   - treated NaN and the declared nodata value as missing
+   - resampled to the DEM grid with bilinear interpolation
+   - set nodata to -9999
+   - reopened the output and checked the grid, the nodata value and the
+     valid value range
+   - compared the output mean with the input mean
+4. Wrote periods_alignment_check.csv.
+
+Folder: Phase_3b_align/
+Script: phase3b_align_periods.py
+Output report: outputs/periods_alignment_check.csv
+
+
+3. INPUT FILES
+--------------
+Folder data/input/ (copied from Phase_3_period_medians/outputs/):
+  viphya_ndvi_2002_2015.tif
+  viphya_ndvi_2016_2024.tif
+  viphya_ndmi_2002_2015.tif
+  viphya_ndmi_2016_2024.tif
+  viphya_lst_2002_2015.tif
+  viphya_lst_2016_2024.tif
+  viphya_rainfall_2002_2015.tif
+  viphya_rainfall_2016_2024.tif
+
+Folder data/reference/:
+  Viphya_DEM.tif   (copied from Phase 1b data/aligned/)
+
+
+4. OUTPUT FILES
+---------------
+Folder data/aligned/ (8 files only, all on the DEM grid):
+  viphya_ndvi_2002_2015.tif
+  viphya_ndvi_2016_2024.tif
+  viphya_ndmi_2002_2015.tif
+  viphya_ndmi_2016_2024.tif
+  viphya_lst_2002_2015.tif
+  viphya_lst_2016_2024.tif
+  viphya_rainfall_2002_2015.tif
+  viphya_rainfall_2016_2024.tif
+
+Folder outputs/:
+  periods_alignment_check.csv
+
+
+5. RESULTS (from the console run)
+---------------------------------
+  File                              Input valid %   Output valid %   Mean shift %   Status
+  viphya_ndvi_2002_2015.tif         55.19           55.83             0.02          PASS
+  viphya_ndvi_2016_2024.tif         55.19           55.83             0.01          PASS
+  viphya_ndmi_2002_2015.tif         55.19           55.83             0.10          PASS
+  viphya_ndmi_2016_2024.tif         55.19           55.83             0.09          PASS
+  viphya_lst_2002_2015.tif          56.91           58.25            -0.02          PASS
+  viphya_lst_2016_2024.tif          56.91           58.25            -0.01          PASS
+  viphya_rainfall_2002_2015.tif     64.17           76.60             0.24          PASS
+  viphya_rainfall_2016_2024.tif     64.17           76.60             0.06          PASS
+
+Files in data/aligned/: 8
+Every layer passed the grid, nodata and range checks. No layer exceeded the
+5 percent mean-shift threshold.
+
+
+6. WHY IT MATTERS
+-----------------
+- Every predictor shares one grid, so each sample point reads the same
+  place in every layer.
+- The mean shifts are very small, so the resampling has not changed the
+  values' overall level. Each layer is still the same quantity it was in
+  Phase 3.
+- The period split is kept intact. The 2002 to 2015 layers come only from
+  2002 to 2015 data, and the 2016 to 2024 layers only from 2016 to 2024.
+
+
+7. WHAT THE DISSERTATION SHOULD NOTE
+------------------------------------
+- Resampling method: bilinear for all eight layers. Use one sentence for
+  all of them. No layer is nearest neighbour, since none is categorical.
+- Source resolutions: NDVI and NDMI 500 m (MODIS), LST 1 km (MODIS
+  MOD11A2, daytime), rainfall about 5.5 km (CHIRPS, mean seasonal total).
+  All were resampled to the 30.63 m DEM grid.
+- Valid share increased after resampling: NDVI and NDMI 55.19 to 55.83
+  percent, LST 56.91 to 58.25 percent, rainfall 64.17 to 76.60 percent.
+  This is interpolation at the edge of the valid area. It creates values
+  only in cells next to valid source cells, not new data. Say so in the
+  methods. Rainfall shows the largest increase because its source cells
+  are about 5.5 km wide.
+- The mean shift is under 0.25 percent for all layers, so resampling
+  did not change the layer means.
+- Superseded layers: the Phase 1b aligned files for NDVI and NDMI are the
+  full-period layers (2002 to 2024). They are not used for the model.
+  The model uses only the period files in data/aligned/.
+
+
+8. OPEN ITEM FOR LATER
+----------------------
+The fixed layers (DEM, slope, aspect, distances, LULC) come from Phase 1b
+and cover the full period. Phase 4 must combine them with the period layers
+in this folder. Decide before Phase 4 whether the final susceptibility map
+uses 2002 to 2024 or the 2016 to 2024 layers. This affects the map, not the
+model evaluation.
+
+
+9. SUCCESS NOTE
+---------------
+Phase 3b is complete. data/aligned/ contains exactly the eight period layers,
+on the DEM grid, with nodata set and all values in range. This is the input
+for Phase 4.
+
+Next: Phase 4 (sample building). Phase 4 combines these eight layers with the
+fixed layers from Phase 1b and the fire events from Phase 2, and only keeps
+a point when every predictor is valid there.

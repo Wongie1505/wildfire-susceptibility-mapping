@@ -1,0 +1,110 @@
+PHASE 1c: NDMI ALIGNMENT
+========================
+
+Status: COMPLETE (PASS)
+
+
+1. PURPOSE
+----------
+The NDMI layer first produced from Landsat could not be used because of
+tile seam lines. It was replaced by a MODIS MOD09A1 export, which covers
+2002 onward and comes from the same sensor family as the NDVI layer. This
+phase aligns the new export to the DEM grid, so NDMI uses the same grid as
+every other predictor.
+
+
+2. WHAT WAS DONE
+----------------
+- Read the GEE export viphya_ndmi_modis.tif (500 m).
+- Treated NaN and the declared nodata value as missing, and reported the
+  share of valid input pixels.
+- Reprojected the valid pixels onto the DEM grid with bilinear
+  interpolation.
+- Set nodata to -9999 on the output.
+- Reopened the output and checked the grid, the nodata setting, and that
+  all valid values lie between -1 and 1.
+
+Folder: Phase_1c_ndmi/
+Script: phase1c_align_ndmi.py
+Output: outputs/ndmi_alignment_check.csv
+Aligned raster: data/aligned/viphya_ndmi.tif
+
+
+3. INPUT FILES
+--------------
+Folder data/input/:
+  viphya_ndmi_modis.tif     GEE export, MOD09A1, 500 m, July to December
+                            median, 2002 to 2024
+
+Folder data/reference/:
+  Viphya_DEM.tif            reference grid (copied from Phase 1b)
+
+The GEE script that produced the input is ndmi_modis_export.js. Its export
+is named viphya_ndmi_modis, in the Google Drive folder Viphya_Data.
+
+
+4. OUTPUT FILES
+---------------
+  data/aligned/viphya_ndmi.tif       (30.6342 m, DEM grid)
+  outputs/ndmi_alignment_check.csv
+
+
+5. RESULTS (from ndmi_alignment_check.csv)
+------------------------------------------
+  source resolution:         500 m
+  output resolution:         30.6342 m
+  input valid pixels:        55.19 percent
+  resampling:                bilinear
+  same grid as reference:    TRUE
+  nodata set:                TRUE
+  output nodata share:       44.17 percent (outside the boundary)
+  valid minimum:             -0.1435
+  valid maximum:              0.3051
+  values within -1 to 1:     TRUE
+  status:                    PASS
+
+The input valid share (55.19 percent) is the same as the NDVI layer's valid
+share. Both MODIS layers therefore cover the same pixels inside the
+boundary.
+
+
+6. WHY IT MATTERS
+-----------------
+Every predictor must be on one grid, so each sample point reads the same
+location in every layer. The Landsat NDMI could not be used because of the
+seam lines. This phase replaces it with a source that has no seam lines and
+covers the full 2002 to 2024 window.
+
+
+7. WHAT THE DISSERTATION SHOULD NOTE
+------------------------------------
+- NDMI was computed as (NIR minus SWIR) divided by (NIR plus SWIR), using
+  MODIS MOD09A1 band 2 (NIR, 841 to 876 nm) and band 6 (SWIR, 1628 to 1652
+  nm).
+- Clear-sky pixels only were used, selected with the StateQA cloud bits
+  (bits 0 and 1 equal to 00).
+- The composite is the July to December median, 2002 to 2024, the same
+  window as NDVI.
+- The source resolution is 500 m. It was resampled to the 30.63 m DEM grid.
+  Resampling does not add detail, so this must be stated as a limitation.
+- The Landsat NDMI and the Sentinel-2 NDMI (viphya_ndmi_s2.tif) were not
+  used. Say so in the methods to explain the change from the proposal.
+
+
+8. LIMITATIONS
+--------------
+- Values are between -0.14 and 0.31. This is plausible for dense forest,
+  but the range is narrow, so the layer varies little across the study
+  area. Its contribution to the model should be checked in the importance
+  results.
+- Only 55 percent of the input pixels were valid. The rest are cloud-masked
+  or outside the boundary. The valid share matches NDVI, so the gaps are
+  shared between the two sources.
+
+
+9. SUCCESS NOTE
+---------------
+Phase 1c is complete. viphya_ndmi.tif is on the DEM grid, with nodata set,
+and every valid value is in range. It is ready for Phase 2.
+
+Next: Phase 2 (fire events and sampling).

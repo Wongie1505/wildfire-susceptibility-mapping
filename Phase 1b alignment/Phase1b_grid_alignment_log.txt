@@ -1,0 +1,154 @@
+PHASE 1b: GRID ALIGNMENT
+========================
+
+Status: COMPLETE for the 10 layers aligned by script. NDVI was resampled
+manually before this phase (see section 10). NDMI was replaced in Phase 1c.
+
+
+1. PURPOSE
+----------
+Phase 1 found that eight predictor rasters did not share the reference
+grid (pixel size and origin) with the DEM, although all used EPSG:32736.
+Phase 1b brings the predictors onto the DEM grid, so every sample point
+reads the same location in every layer. The original files are not changed.
+
+
+2. WHAT WAS DONE
+----------------
+Each raster was checked against the reference DEM grid.
+- Four files already matched the grid and were copied unchanged.
+- Seven files were resampled onto the DEM grid:
+    categorical (LULC): nearest neighbour, so class codes are kept
+    continuous:          bilinear interpolation
+- Every output has a nodata value set.
+- Every output was reopened and checked against the reference grid.
+
+Folder: Phase_1b_align/
+Script: phase1b_align_grids.py
+Outputs: outputs/alignment_log.csv (what was done to each file)
+         outputs/aligned_check.csv  (verification of each output)
+Aligned rasters: data/aligned/
+
+
+3. INPUT FILES
+--------------
+Folder data/input/ (copies of the Phase 1 predictors, unchanged):
+  Rivers_Distances.tif
+  Roads_distances.tif
+  Settlement_Distance.tif
+  Viphya_Aspect_eastness.tif
+  Viphya_Aspect_northness.tif
+  Viphya_DEM.tif              (reference grid)
+  viphya_lst.tif
+  Viphya_LULC.tif
+  viphya_ndmi.tif             (superseded, see Phase 1c)
+  viphya_ndvi.tif             (resampled manually, see section 10)
+  viphya_rainfall.tif
+  Viphya_Slope.tif
+
+
+4. OUTPUT FILES
+---------------
+Folder data/aligned/ (12 files, all on the reference grid):
+  Rivers_Distances.tif, Roads_distances.tif, Settlement_Distance.tif,
+  Viphya_Aspect_eastness.tif, Viphya_Aspect_northness.tif, Viphya_DEM.tif,
+  viphya_lst.tif, Viphya_LULC.tif, viphya_ndmi.tif (from Phase 1c),
+  viphya_ndvi.tif, viphya_rainfall.tif, Viphya_Slope.tif
+
+Folder outputs/:
+  alignment_log.csv
+  aligned_check.csv
+
+
+5. RESULTS
+----------
+Action per file (from alignment_log.csv):
+  Copied unchanged (already on the reference grid):
+    Viphya_Aspect_eastness.tif, Viphya_Aspect_northness.tif,
+    Viphya_DEM.tif, Viphya_Slope.tif
+  Resampled, bilinear:
+    Rivers_Distances.tif       from 29.9872 x 29.9872 m
+    Roads_distances.tif        from 29.9872 x 29.9872 m
+    Settlement_Distance.tif    from 29.9872 x 29.9872 m
+    viphya_lst.tif             from 29.9921 x 30.0038 m
+    viphya_rainfall.tif        from 29.9921 x 30.0038 m
+  Resampled, nearest neighbour:
+    Viphya_LULC.tif            from 30.0071 x 30.0003 m
+  NDVI and NDMI: see sections 9 and 10.
+
+Verification (from aligned_check.csv): all 12 files PASS.
+  same grid as reference: True for all 12
+  nodata set:             True for all 12
+  share of nodata pixels: about 44 to 47 percent per file. This is the area
+                          outside the boundary, not a fault.
+
+
+6. WHY IT MATTERS
+-----------------
+Without this step, the sample table would read each predictor from a
+different location, and the model would learn from a shifted picture.
+Aligning to the DEM also means every map and table in later phases uses
+one grid.
+
+
+7. WHAT THE DISSERTATION SHOULD NOTE
+------------------------------------
+- The processing grid is 30.63 m, the DEM's pixel size. Write "30.63 m",
+  not "30 m". Suggested wording: "All layers were resampled to the 30.63 m
+  DEM grid. Source resolutions were 500 m (MODIS NDVI and NDMI), 1 km
+  (MODIS LST, resampled from a 30 m export), and 5 km (CHIRPS rainfall)."
+- Rainfall is a 5 km product. It was resampled to 30 m for matching only.
+  This adds no detail and must be stated as a limitation.
+- Categorical LULC was resampled with nearest neighbour, so no new class
+  codes were created. Bilinear interpolation was used for all other layers.
+- Nodata values differ between files: DEM -32768, slope -9999, the
+  distances -3.4e38 in the source (now -9999), LULC 255. State this in the
+  methods, since it affects any code that reads these files.
+- Nodata covers about 44 to 48 percent of each raster. This is the
+  outside-boundary area. Report the study area as the cells inside the
+  boundary.
+
+
+8. SOURCES (confirmed by the author)
+------------------------------------
+- LST: MODIS MOD11A2, 1 km product, from 2000 onward. Exported from Google
+  Earth Engine at 30 m. The dissertation must say MODIS MOD11A2.
+- Rainfall: CHIRPS, 5 km product.
+- NDVI: MODIS MOD13A3, 1 km monthly product, exported from GEE at 500 m.
+  July to December median, 2002 to 2024. The time window ends at 1 January
+  2025, so 2025 is excluded.
+- NDMI: MODIS MOD09A1, 500 m product, July to December median, 2002 to 2024.
+  Replaces the earlier Landsat-based layer (see Phase 1c).
+- Landsat is not used for any predictor in the final set. The Sentinel-2
+  file viphya_ndmi_s2.tif is not used anywhere in the pipeline.
+
+
+9. NDVI AND NDMI IN THIS PHASE
+------------------------------
+NDVI: the file in the project is the 500 m MODIS export, resampled to the
+DEM grid manually (outside this script). Its values match the Drive export:
+min 0.3561, max 0.8368, mean 0.6449, valid 55.19 percent. The valid share
+matches the NDMI source, so both cover the same pixels.
+
+NDMI: replaced in Phase 1c, which aligns the MODIS MOD09A1 export by script.
+See Phase1c_ndmi_alignment_log.txt.
+
+
+10. NDVI RESAMPLING TO COMPLETE (fill in before the dissertation)
+-----------------------------------------------------------------
+The NDVI resampling was done by hand, so the script's log does not record
+it. Fill in these details from the work you did:
+  Tool used:           Python
+  Resampling method:   bilinear (probably, you wrote the code)
+  Output pixel size:   (30.6342 m)
+  Output grid:          matches DEM)
+  Nodata value set:   -9999
+  Date run:            forgotten
+
+11. SUCCESS NOTE
+----------------
+Phase 1b is complete for the layers aligned by script. The aligned set in
+data/aligned/ is the input for Phase 2, once section 10 is filled in and
+the NDVI layer has been checked against the DEM grid.
+
+Next: Phase 2 (fire events and sampling).

@@ -1,0 +1,266 @@
+PROJECT DECISIONS LOG
+=====================
+
+One place for every decision that shapes the model. Each entry gives the
+decision, the reason, and the phase it affects. Add to this file whenever a
+decision is made, and record the date. Phase records hold the detail.
+
+
+DECISIONS MADE
+--------------
+
+D1. Study window: 2002 to 2024. Date recorded: before Phase 2.
+    Reason: MODIS predictors start in 2002. Records from 2001 and 2025 fall
+    outside the window and are excluded.
+    Affects: Phase 2, Phase 3.
+
+D2. Training period 2002 to 2015. Test period 2016 to 2024.
+    Reason: a time split tests the model on years it did not learn from. A
+    random split leaks information between neighbouring fires.
+    Affects: Phase 2 (labels), Phase 3 (predictors), Phase 4 (sampling).
+
+D3. Period-specific predictors for NDVI, NDMI, LST and rainfall.
+    Reason: the test years must not appear in the training predictors. The
+    fixed layers (DEM, slope, aspect, distances, LULC) are not period-specific.
+    Affects: Phase 3, Phase 3b.
+
+D4. NDVI and NDMI from MODIS, July to December medians.
+    NDVI: MOD13A3, 500 m. NDMI: MOD09A1, 500 m, clear-sky mask.
+    Reason: Landsat NDMI had tile seam lines. Sentinel-2 does not cover 2002.
+    Using MODIS for both vegetation layers keeps one sensor family.
+    Affects: Phase 1c, Phase 3.
+
+D5. LST from MODIS MOD11A2, daytime, 1 km, zero values masked before the median.
+    Reason: zero is the no-data value. Without the mask the median is pulled
+    down wherever data is missing.
+    Affects: Phase 3.
+
+D6. Rainfall from CHIRPS daily, mean seasonal total (mean daily x 184).
+    Reason: a seasonal total is a sum over days, so the mean is the correct
+    statistic. The other layers use medians, so the statistic differs by layer.
+    Affects: Phase 3. The dissertation must state the difference.
+
+D7. All predictors resampled to the 30.63 m DEM grid, bilinear.
+    Reason: one grid for every layer, so each sample reads the same place.
+    Affects: Phase 1b, Phase 1c, Phase 3b.
+
+D8. Fire events: 1000 m and 4 days, chained, timestamp-based. One detection
+    per event (highest confidence, earliest time on ties). Confidence 75 and
+    above.
+    Reason: detections of one fire count once. Timestamps are more exact than
+    whole days.
+    Affects: Phase 2.
+
+D9. Final susceptibility map uses the 2016 to 2024 predictors. The model is
+    trained on 2002 to 2015. An all-years map is shown as a sensitivity result.
+    Reason: the map uses the same predictor conditions the accuracy was measured
+    on, and recent conditions are what the forestry office faces. An all-years
+    map would use predictor values the model was never tested on.
+    Affects: Phase 6 (map). Does not change the model.
+
+D10. Non-fire buffer: 500 m, for both periods.
+    Reason: the buffer_coverage.csv check measured how much of the boundary
+    stays available as background at each buffer size. At 1000 m, 95 percent
+    of the training boundary and 91 percent of the test boundary were within
+    reach of a detection, which left the non-fire samples only in the far
+    margins. At 500 m, 23 percent (367 km2) of the training boundary and 34
+    percent (539 km2) of the test boundary remain, which is enough for the
+    sample size. 500 m is also half the MODIS 1 km footprint, so the choice
+    has a physical basis. The choice was made from the coverage check only,
+    before any model was trained. No accuracy result was used.
+    Superseded: the 1000 m run of Phase 4, which rejected 95 percent of the
+    training candidates. Its counts are kept as the extreme sensitivity case.
+    Affects: Phase 4, Phase 5 (sensitivity).
+
+D11. Sampling design: one non-fire point for each fire event, 1:1 per period.
+    The non-fire points are drawn separately for 2002 to 2015 and for 2016 to
+    2024.
+    Reason: a balanced design is standard and easy to defend. The ratio was
+    fixed before any model was run. It was not chosen to raise the AUC,
+    because choosing a design on test-period scores would invalidate the test.
+    Ratios other than 1:1 are reported as a sensitivity table, not used for
+    the main result.
+    Affects: Phase 4, Phase 5.
+
+D12. Random seed: 42. Used for every random draw in Phase 4 and in
+    buffer_coverage.py.
+    Reason: the sample can be reproduced exactly.
+    Affects: Phase 4.
+
+D13. Non-fire buffer uses detections from the same period only.
+    Reason: a training negative must not sit near a test-period fire, because
+    that would use test labels to define training samples. The training buffer
+    uses 2002 to 2015 detections. The test buffer uses 2016 to 2024 detections.
+    Affects: Phase 4.
+
+D14. The buffer uses all filtered detections, not only the representative
+    event points.
+    Reason: an event can contain detections up to 1 km apart. A buffer around
+    the representative point alone would leave some fire pixels unprotected.
+    Affects: Phase 4.
+
+D15. Spatial blocks of 5 km for cross-validation, stored as block_id in the
+    training table.
+    Reason: nearby fires share conditions, so random folds can overstate
+    performance. Blocks keep neighbouring points in the same fold.
+    Affects: Phase 4 (block_id), Phase 5 (cross-validation).
+
+
+D16. Study area (ROI): the Chikangawa boundary, 1,577.3 km2, is used for
+    background sampling, modelling and mapping. Decided: before Phase 5.
+    Reason: the ROI is the study area as defined by the author. Background
+    points, the model and the map all use the same area.
+    Dissertation note: state the ROI definition in Chapter 3. The plantation
+    figure (53,501 ha from the Department of Forestry) is context. It is not
+    the study area, and the 1,577 km2 ROI must not be described as the
+    plantation.
+    Affects: Phase 4 (already run on this ROI), Phase 5, Phase 7.
+
+
+D17. Main model: Random Forest. Chosen on training-year cross-validation,
+    before any test-period scoring.
+    Reason: Random Forest has the highest mean AUC in both schemes (random
+    0.925, spatial block 0.773). Its advantage over XGBoost and LightGBM on the
+    spatial scheme (0.015 AUC) is smaller than one standard deviation (about
+    0.035), so the three models are not clearly different. Random Forest is
+    the main model because it was highest, not because it is proven better.
+    XGBoost and LightGBM are reported on the test years as comparisons only.
+    They are not used to choose the main model after the test scores are seen.
+    Affects: Phase 6, Phase 7.
+
+D18. Headline accuracy. The dissertation reports spatial block cross-validation
+    as the main result. The random-split score (AUC 0.93 for Random Forest) is
+    reported as an inflated comparison, not as the model's skill.
+    Reason: random folds put neighbouring fires in both the training and the
+    validation sets. The spatial scheme holds out whole 5 km blocks, which
+    tests generalisation to unseen ground. Spatial AUC is about 0.77, against
+    about 0.93 for random folds. The 0.16 gap is the effect of spatial
+    autocorrelation.
+    Affects: Phase 5 (reporting), Phase 6, the dissertation abstract and
+    Chapter 4.
+
+
+D19. Test results recorded (Phase 6), before any further analysis.
+    Main model (Random Forest, 500 m, 2016 to 2024): AUC 0.571 (95 percent
+    interval 0.552 to 0.590), F1 0.604, precision 0.530, recall 0.701.
+    XGBoost AUC 0.556, LightGBM AUC 0.560 (comparisons only).
+    Buffer sensitivity, Random Forest retrained at each buffer:
+      0 m    AUC 0.519 (0.501 to 0.538)
+      250 m  AUC 0.521 (0.502 to 0.540)
+      500 m  AUC 0.571 (0.552 to 0.590)  main
+      1000 m AUC 0.671 (0.655 to 0.689)
+    Decision: the 500 m result stays the main result (D10). It is not replaced
+    by a buffer that scores higher on the test years. The full range is
+    reported beside it. The results are not used to tune the model.
+    Affects: Phase 6, Phase 7, the dissertation abstract and Chapter 4.
+
+D20. Reliability claim. The model shows weak skill on the test years. It is
+    above chance at 500 m and close to chance at 0 and 250 m. The rise in AUC
+    with buffer size is consistent with the distance artifact described in
+    D10. The dissertation must say that the model identifies where fires occur,
+    not reliably when they occur in a given year.
+    Explanations to report: (a) limited real skill, or (b) unrecorded fires in
+    the non-fire points pulling AUC toward 0.5. The data cannot separate them.
+    Affects: abstract, conclusions, Chapter 4.
+
+D21. Map reliability (Phase 7). The map uses the 2016 to 2024 layers (D9) and
+    the Random Forest (D17). The map must carry a caveat: relative fire
+    susceptibility, with weak temporal skill (D19, D20). It is not a probability
+    of fire in a given year. The map must show the buffer sensitivity beside it.
+    Affects: Phase 7.
+
+D22. Rules after the test scores were seen. Any change to the model, the
+    sampling, the buffer or the predictors after the test-period results in
+    D19 were recorded counts as a new analysis. It must be declared as one, and the
+    result in D19 must be reported alongside it. No setting is chosen by its
+    test score.
+    Affects: all phases after Phase 6.
+
+
+D23. Map class limits: low below 0.33, medium 0.33 to below 0.66, high 0.66
+    and above. Decided: before Phase 7 was run.
+    Reason: the earlier legend left a gap between 0.66 and 0.67. The single
+    cut-off removes the gap and matches the three class limits in the
+    dissertation.
+    Affects: Phase 7, area_table.csv, all class figures.
+
+D24. Figures from earlier runs are not used. The Random Forest map (both
+    panels) and the three class-distribution pie charts in the author's
+    image set come from the earlier full-period model. The pie charts match
+    that run's overlay of 12,889 fire points (77 percent high), which is
+    an in-sample overlay, not validation. They must be regenerated from the
+    Phase 7 outputs and Phase 8 before they go into the dissertation.
+    Affects: Phase 7, Phase 8, Chapter 4.
+
+D25. Map titles and labels. The map title says "Viphya Plantation". The
+    study area is the ROI (D16), so the title and the legend must say the
+    study area is the Chikangawa ROI. The continuous legend reads
+    "Continous" and must be corrected to "Continuous". The continuous legend
+    is a susceptibility score on the 0 to 1 scale, not a fire probability for
+    a given year, so "Fire Probability" must be renamed "Susceptibility score".
+    Affects: all maps.
+
+D26. Predictor outputs. The four period predictors used for the map
+    (NDVI, NDMI, LST, rainfall, 2016 to 2024) are copied to outputs/predictors.
+    The eight static predictors are not copied, as agreed.
+    Affects: Phase 7.
+
+
+D27. Mean susceptibility score and the high-class share. The 2016 to 2024
+    map has a mean score of 0.61 and 42.6 percent of predicted area in the high
+    class. The training sample was 50 percent fire, so a neutral model would
+    average near 0.5. The shift is attributed to the drier, warmer 2016 to 2024
+    predictors (Phase 3 observed values), not to a verified fire signal, since
+    test AUC is 0.57 (D19). The dissertation must describe the high-class share
+    as a model output under recent conditions, not as a measured fire area.
+    Diagnostic (optional, not a model change): run the same map with the
+    2002 to 2015 predictors. A large difference in the high-class share would
+    confirm that the predictor shift drives the result. Any such run is a
+    diagnostic, declared as one, and is not used to choose the map.
+    Affects: Phase 7, Phase 8, Chapter 4.
+
+
+D25 (amended). Map title is "Viphya Plantation - Wildfire Susceptibility
+    Mapping". Decided by the author; final. The study area is still the
+    Chikangawa ROI (D16). The methods text and the figure caption must define
+    the 1,577 km2 ROI, so the title is not read as a claim that the ROI is the
+    plantation. The legend uses "Susceptibility score" and "Continuous".
+    Affects: all maps, Chapter 3 and the figure captions.
+
+D28. Phase 7b (packaging) and Phase 8b (mapping) run for 2016 to 2024 first.
+    The 2002 to 2015 diagnostic is run afterwards with the same scripts, by
+    changing PERIOD and using the 2002 to 2015 predictor layers in Phase 7.
+    Reason: the 2016 to 2024 outputs are already checked in QGIS. The packaging
+    script adds checksums, a manifest and cross-checks against area_table.csv,
+    so the dissertation figures can be traced to exact files.
+    Affects: Phase 7b, Phase 8b.
+
+
+OPEN DECISIONS
+--------------
+
+O1. LULC year. Confirm the year the LULC layer was built from. If it is a
+    single year, state it in the dissertation as a limitation, since LULC is
+    the only predictor that is not period-specific.
+    Affects: Phase 1b, Phase 4.
+
+O3. Buffer sensitivity. Run the sampler with 0, 250 and 1000 m, and score each
+    result on the test period. The 500 m run is the main result.
+    Affects: Phase 6.
+
+
+PHASE 4 SAMPLING: NOTES FOR THE DISSERTATION
+--------------------------------------------
+
+Distance bias. Non-fire points are kept at least 500 m from every detection
+in their period. This keeps the background away from fires, but it also
+means the model can partly learn distance to fire from where the samples sit.
+The dissertation must state this bias and report the 0, 250 and 1000 m runs.
+
+Sample counts (500 m run, from sample_counts.csv):
+  Training 2002 to 2015: 2,430 fire, 2,430 non-fire (from 2,461 events; 31 lost
+  to missing predictors).
+  Test 2016 to 2024: 1,770 fire, 1,770 non-fire (from 1,783 events; 13 lost).
+  Share of boundary left as background matched buffer_coverage.csv
+  (training 23.2 percent against 23.3 percent; test 33.9 percent against 34.2
+  percent).

@@ -1,0 +1,13 @@
+file,same_grid_as_reference,nodata_set,nodata_share_pct,status
+Rivers_Distances.tif,True,True,47.53,PASS
+Roads_distances.tif,True,True,46.82,PASS
+Settlement_Distance.tif,True,True,46.82,PASS
+Viphya_Aspect_eastness.tif,True,True,47.19,PASS
+Viphya_Aspect_northness.tif,True,True,47.19,PASS
+Viphya_DEM.tif,True,True,46.82,PASS
+viphya_lst.tif,True,True,44.18,PASS
+Viphya_LULC.tif,True,True,46.81,PASS
+viphya_ndmi.tif,True,True,46.71,PASS
+viphya_ndvi.tif,True,True,44.18,PASS
+viphya_rainfall.tif,True,True,44.18,PASS
+Viphya_Slope.tif,True,True,47.18,PASS
