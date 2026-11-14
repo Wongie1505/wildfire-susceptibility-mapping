@@ -19,7 +19,8 @@ OUTPUT_FOLDER = r'C:\Users\wongi\OneDrive\Desktop\Year 4\Project Thesis\My Resea
 
 YEAR = 2025
 SCALE_KM = 30
-HOT = 0.3         # normalised density above this is drawn as a hotspot
+HOT = 0.3
+         # normalised density above this is drawn as a hotspot
 PAD = 2000         # metres of padding around the ROI
 GRID = 500         # metres per density grid cell
 
