@@ -1,0 +1,4 @@
+class,code,fire_events,fire_share_pct,fire_share_ci_low_pct,fire_share_ci_high_pct,nonfire_points,nonfire_share_pct,lift_fire_over_nonfire
+Low,1,12,7.69,4.45,12.96,15,9.55,0.805
+Medium,2,82,52.56,44.76,60.24,80,50.96,1.032
+High,3,62,39.74,32.4,47.58,62,39.49,1.006

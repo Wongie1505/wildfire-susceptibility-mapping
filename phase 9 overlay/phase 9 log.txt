@@ -1,0 +1,112 @@
+PHASE 9: 2025 OVERLAY (FIRE DETECTIONS ON THE SUSCEPTIBILITY MAP)
+=================================================================
+
+Status: PARTIAL. The map is produced and the detection total is confirmed at 234.
+The class counts for detections and matched non-fire points are still to be run.
+
+
+1. PURPOSE
+----------
+Check the 2016 to 2024 susceptibility map against fires from a year outside the
+training and map periods (2025). Count how many 2025 fire detections fall in each
+class, then do the same for matched non-fire points. The unit is the detection
+(decision D30).
+
+
+2. WHAT WAS DONE
+----------------
+1. Downloaded the MODIS fire archive for 2025 from FIRMS (Collection 6.1, Malawi,
+   Shapefile). File: fire_archive_M-C61_847303.
+2. Kept confidence 75 and above.
+3. Clipped to the ROI (Chikangawa boundary, D16). Result: 234 detections.
+4. Drew the map with the 2025 detections as a density surface over the 2016 to
+   2024 class map. Script: map_2025_overlay.py.
+
+Still to do:
+5. Count the 234 detections by class (low, medium, high, not predicted).
+6. Draw matched non-fire points: 1:1 with detections, 500 m buffer from 2025
+   detections, inside the ROI, seed 42. Script: non-fire sampling script
+   (shapefile output).
+7. Count the non-fire points by class.
+8. Compare the shares: fire share over non-fire share in each class, with the
+   lift and a 95 percent interval.
+
+
+3. INPUT FILES
+--------------
+  rf_class_2016_2024.tif                 class map (Phase 7b deliverables)
+  fire_archive_M-C61_847303 (shapefile)  2025 MODIS detections, confidence 75
+                                         and above, clipped to the ROI
+  Chikangawa_forest.shp                  study boundary (ROI)
+
+
+4. OUTPUT FILES SO FAR
+----------------------
+  Map_2025_Overlay.png     susceptibility map with the 2025 detection hotspots
+
+
+5. RESULTS SO FAR
+-----------------
+  2025 detections used: 234 (confidence 75 and above, inside the ROI).
+  Hotspot areas drawn: 6, from a density threshold of 0.6 on a surface scaled
+  from 0 to 1, with a kernel bandwidth of 0.1.
+
+  Counts by class: NOT YET RUN.
+
+  Earlier event-based check (sensitivity only, not the main result):
+  An earlier run used 157 events (156 classified, 1 not predicted) and an equal
+  number of matched non-fire points. The shares were:
+    Low:    7.69 percent of events, 9.55 percent of non-fire points, lift 0.81
+    Medium: 52.56 percent of events, 50.96 percent of non-fire points, lift 1.03
+    High:   39.74 percent of events, 39.49 percent of non-fire points, lift 1.01
+  A lift near 1 means the map does no better than a random point in that class.
+  This run used events, and D30 makes detections the main unit, so these figures
+  are reported only as a sensitivity check. They must be rerun on detections.
+
+
+6. OPEN CHECKS BEFORE THE DISSERTATION USES THIS
+------------------------------------------------
+(a) Window for the 234. The methods must state the date window used to produce
+    234. The 2002 to 2024 analysis uses July to December. If the file includes
+    January to June 2025, state that and justify it, or refilter to July to
+    December and report that count alongside 234. The count of 234 is confirmed,
+    but its window must be written down.
+
+(b) Layout defect in Map_2025_Overlay.png. The title and subtitle run past the
+    right edge of the figure. Shorten the text or reduce the font size before the
+    figure is used.
+
+(c) Straight edges in the class map. The map shows a straight vertical edge on
+    the western side of the ROI and a rectangular block with straight sides in
+    the south-east. These are likely the edges of a predictor's valid area (the
+    rainfall layer is about 5.5 km; the MODIS layers cover a rectangular extent),
+    not a model fault. The 2 percent of the ROI with no prediction (Phase 7) sits
+    at these edges. Check in QGIS which predictor causes each edge and state the
+    cause in the methods or the map caption.
+
+
+7. HOTSPOT THRESHOLD
+--------------------
+The hatched areas use a density threshold of 0.6 on a surface scaled from 0 to 1,
+with a kernel bandwidth of 0.1. The threshold is a choice, not a result. The
+dissertation must state both values. Changing the threshold changes which areas
+are hatched.
+
+
+8. WHAT THE DISSERTATION SHOULD NOTE
+------------------------------------
+- The 2025 overlay checks the map on fires outside the training and map periods
+  (D29, D30).
+- The unit is the detection. Confidence 75 and above. Clipped to the ROI.
+- The density surface is a visual aid. It is not a fire forecast and is not a
+  measure of accuracy.
+- The points are located to about 1 km, so a point near a class boundary can
+  fall in either class.
+- The hotspot threshold and bandwidth are stated (section 7).
+
+
+9. SUCCESS NOTE
+---------------
+Partial. The map is produced and the detection count is 234. Still to do: the
+class counts and the non-fire comparison (steps 5 to 8), the window check (6a),
+the title layout (6b), and the straight-edge check (6c).
