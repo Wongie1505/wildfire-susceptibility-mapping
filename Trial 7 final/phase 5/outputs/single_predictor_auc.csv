@@ -1,0 +1,15 @@
+predictor,auc_alone
+burn_count_3yr,0.629
+years_since_burn,0.627
+lulc,0.606
+lst_anomaly,0.551
+ndmi_anomaly,0.529
+rain_anomaly,0.525
+dem,0.521
+roads_dist,0.521
+slope,0.519
+aspect_east,0.513
+rivers_dist,0.509
+settlement_dist,0.507
+ndvi_peak,0.506
+aspect_north,0.504

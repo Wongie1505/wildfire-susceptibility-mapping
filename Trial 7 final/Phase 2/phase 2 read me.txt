@@ -1,0 +1,238 @@
+PHASE 2: STATIC PREDICTOR STACK (TRIAL 7)
+=========================================
+
+Status: COMPLETE. Date run: 14 November 2026.
+
+Context. Trial 7 is a declared new analysis. It was started after the Trial 6
+test results were known (Random Forest test AUC 0.571), so nothing in Trial 7
+may be presented as a blind first run. No model has been trained in Trial 7
+and no test result was used for any choice in this phase.
+
+
+1. PURPOSE
+----------
+Phase 1 confirmed that every input opens and that the six rasters and the
+boundary share EPSG:32736 and the DEM grid (30.6342 m). Phase 2 turns the
+static layers into one stack on the 500 m modelling grid, so each 500 m cell
+of the forest carries seven predictor values. "Static" means the layer does
+not change between fire seasons. Layers that change by season (rainfall,
+NDMI, LST, NDVI, fire history, yearly LULC) are built in later phases.
+
+
+2. WHAT WAS DONE
+----------------
+- Built a 500 m reference grid over the forest boundary.
+- Computed elevation, slope and aspect from the 30.6342 m DEM, then averaged
+  them onto the 500 m grid.
+- Computed distance to the nearest river, road and settlement from each
+  500 m cell centre.
+- Masked everything outside the forest boundary.
+- Stacked the seven layers into one GeoTIFF and wrote a data dictionary.
+- Checked that all seven layers have the same number of valid cells.
+
+The old Trial 6 derived rasters (Viphya_Slope, aspect eastness and northness,
+Rivers_Distances, Roads_distances) were used only in the Phase 1 check. They
+were not reused. All of them were recomputed on the new grid.
+
+
+3. HOW IT WAS DONE
+------------------
+Script: build_static_stack.py (Spyder). Settlement export: gee_settlements.js
+(Google Earth Engine).
+
+Step 1. Reference grid.
+  CRS from the boundary: EPSG:32736. Cell size 500 m. The origin is snapped to
+  multiples of 500 (x0 = floor(xmin / 500) x 500, top edge = ceil(ymax / 500)
+  x 500), so every later GEE export can use the identical grid.
+  Boundary extent: x 575,116 to 612,839, y 8,648,947 to 8,727,438.
+  Expected grid from this extent: 76 columns by 158 rows (12,008 cells),
+  origin 575,000 / 8,727,500. Confirm in the layer properties.
+  A cell is inside the forest if its centre falls inside the boundary polygon.
+
+Step 2. Elevation, slope, aspect.
+  DEM nodata (-32768) was set to NaN first. Slope and aspect were calculated at
+  the native 30.6342 m resolution with numpy gradient (central differences),
+  then averaged onto the 500 m grid.
+    slope = atan( sqrt(dz/dx^2 + dz/dy^2) ), in degrees.
+    Aspect is stored as two components of the downslope direction, eastness
+    and northness, each between -1 and 1. Flat cells have no direction and
+    are NaN.
+  Averaging method: GDAL average resampling. Each 500 m cell takes the
+  area-weighted mean of the 30.6342 m cells it overlaps, ignoring NaN.
+  500 / 30.6342 = 16.32, which is not a whole number, so block aggregation by
+  an exact factor was not possible.
+
+Step 3. Distance to rivers and roads.
+  rivers.shp and roads.shp were reprojected to EPSG:32736 if needed. For each
+  500 m cell centre the script finds the nearest feature (exact nearest
+  geometry, STRtree) and records the straight-line distance in metres.
+
+Step 4. Distance to settlements.
+  Source: GHSL GHS-BUILT-S, release P2023A, epoch 2000, band built_surface
+  (m2 of built surface per 100 m cell). Asset ID:
+  JRC/GHSL/P2023A/GHS_BUILT_S/2000.
+  Exported from GEE in EPSG:32736 at 100 m for a rectangle about 30 km larger
+  than the forest (longitude 33.40 to 34.31, latitude -12.50 to -11.24), so a
+  settlement just outside the forest still counts as the nearest one.
+  A 100 m cell counts as settlement when built_surface is at least 500 m2.
+  Distance = from each 500 m cell centre to the nearest settlement cell
+  centre (KD-tree).
+
+Step 5. Mask and save.
+  Cells outside the forest were set to NaN, then to the nodata value -9999.
+  The seven layers were written as bands of one float32 GeoTIFF.
+
+
+4. WHY EACH CHOICE WAS MADE
+---------------------------
+- 500 m cells: the burned-area labels planned for Phase 3 (MODIS MCD64A1) are
+  a 500 m product. The model grid has to match the labels.
+- DEM as reference: the DEM defines the CRS and the area covered. It cannot
+  define the cell size, because 30.6 m is far finer than the labels.
+- Origin snapped to 500: GEE exports can reproduce the exact grid without
+  manual alignment.
+- Slope and aspect at 30 m before averaging: averaging the DEM first would
+  smooth hills flat and underestimate slope.
+- Aspect as eastness and northness: raw degrees cannot be averaged. 359 and 1
+  degrees face almost the same way but average to 180.
+- Distances from cell centres: distance is a property of a point, so each cell
+  gets the distance from its centre. Averaging distances over 30 m cells would
+  add work and no information.
+- GHSL epoch 2000: it predates the first training season (2002), so no
+  settlement built during the study window leaks into the predictors.
+- Settlement threshold 500 m2: stops isolated low-value pixels from counting as
+  a village. This value is a default chosen by Claude and not yet confirmed by
+  the author (see section 12).
+- Old Trial 6 distance and aspect rasters not reused: they came from the old
+  30 m workflow and a settlement layer that is being replaced.
+- Resampling happens once, here. This follows the Trial 7 rule: resample only
+  when aligning layers from different sources, and again right before
+  visualization.
+
+
+5. INPUT FILES
+--------------
+Folder Phase 2/data/ (copies, unchanged):
+  dem/Viphya_DEM.tif                      30.6342 m, nodata -32768
+  boundary/Chikangawa_forest.*            6 files, EPSG:32736
+  vectors/Rivers/rivers.*                 5 files
+  vectors/Roads/roads.*                   5 files
+  gee_exports/GHSL_built_2000.tif         100 m, from gee_settlements.js
+
+
+6. OUTPUT FILES
+---------------
+Folder Phase 2/outputs/:
+  static_stack.tif       7 bands, float32, EPSG:32736, 500 m, nodata -9999
+                         Band order: dem, slope, aspect_east, aspect_north,
+                         rivers_dist, roads_dist, settlement_dist
+  data_dictionary.csv    layer, source, unit, method, nodata, crs, cell size
+
+
+7. RESULTS
+----------
+Printed by the script:
+  Cells inside forest: 6306
+  Valid cells per layer: dem 6306, slope 6306, aspect_east 6306,
+  aspect_north 6306, rivers_dist 6306, roads_dist 6306,
+  settlement_dist 6306.
+
+All seven layers have the same valid cell count, equal to the number of cells
+inside the forest. No layer has gaps inside the forest and none extends
+outside it.
+Study area: 6,306 cells x 0.25 km2 = 1,576.5 km2 (cell-centre rule).
+
+
+8. CHALLENGES AND FIXES
+-----------------------
+1. Three different nodata values (DEM -32768, aspect -3.4e38, others -9999).
+   Fix: all were converted to NaN before any calculation, and the averaging
+   ignores NaN, so edge cells are not pulled toward nodata.
+2. 500 m is not a whole multiple of 30.6342 m. Fix: area-weighted average
+   resampling instead of block aggregation.
+3. The nearest settlement can lie outside the forest. Fix: the GEE export
+   extends about 30 km beyond the boundary.
+4. Confusion over the reference grid (DEM against 500 m). Settled as: the DEM
+   gives the CRS and area, the 500 m grid with origin snapped to multiples of
+   500 gives cell size and alignment.
+5. Script bug found in testing. The first version unpacked the KD-tree result
+   in the wrong order, so settlement "distances" came out as index numbers (a
+   maximum of 8 where several kilometres were expected). It was caught by
+   running the script on dummy data with known geometry, before it was run on
+   the real files. After the fix the dummy test returned a maximum of 11,823 m,
+   which matches the geometry. The real run used the fixed script.
+
+
+9. LIMITATIONS
+--------------
+- Averaging to 500 m removes fine terrain. Mean slope at 500 m is lower than at
+  30 m, and steep local features inside a cell are lost.
+- Slope uses central differences, not the Horn method used by QGIS and GDAL.
+  Values will differ slightly from a QGIS slope map.
+- Settlements are a single 2000 snapshot. Growth after 2000 is not represented.
+  GHSL may undercount small rural dwellings. This was not checked against
+  local data.
+- Distances are straight lines, not travel distance along paths or roads.
+- Rivers and roads are single-date layers. Their source and date must be
+  recorded (section 12).
+- Edge cells are in or out by the position of their centre only.
+- The mean of eastness and northness inside a cell is shorter than 1 where the
+  slope faces mixed directions. This is intended: a value near 0 means no
+  consistent direction.
+
+
+10. WHAT THE DISSERTATION SHOULD NOTE
+-------------------------------------
+- Suggested wording: "All static predictors were placed on a 500 m grid in
+  EPSG:32736, matching the resolution of the MODIS burned-area labels. Slope
+  and aspect were computed from the 30.63 m DEM and then averaged onto the
+  grid. Aspect was represented by eastness and northness. Distances to rivers,
+  roads and settlements were measured from each cell centre."
+- State that distance layers are point values at cell centres, while elevation,
+  slope and aspect are area means. The statistic differs by layer.
+- State that settlements come from GHSL GHS-BUILT-S R2023A, epoch 2000, with a
+  500 m2 threshold per 100 m cell, and why 2000 was chosen (before the first
+  fire season).
+- State that Trial 7 changes the resampling order from Trial 6. Trial 6 put all
+  layers on the 30.63 m grid before analysis. Trial 7 aggregates once, to the
+  500 m modelling grid.
+- Cite: Pesaresi, M. and Politis, P. (2023). GHS-BUILT-S R2023A. European
+  Commission, Joint Research Centre.
+
+
+11. DECISIONS TO ADD TO THE PROJECT DECISIONS LOG
+-------------------------------------------------
+T7-1. Modelling grid: 500 m, EPSG:32736, origin snapped to multiples of 500.
+      Reason: matches the burned-area labels and lets GEE reproduce the grid.
+      Affects: Phases 2 to 8.
+T7-2. Slope and aspect computed at 30.63 m, then averaged to 500 m. Aspect as
+      eastness and northness.
+      Reason: preserves terrain detail and keeps the averaging valid.
+      Affects: Phase 2.
+T7-3. Distances measured from 500 m cell centres to the nearest feature.
+      Affects: Phase 2.
+T7-4. Settlements from GHSL GHS-BUILT-S P2023A, epoch 2000, threshold 500 m2.
+      Reason: predates the study window. Threshold pending confirmation.
+      Affects: Phase 2.
+T7-5. Trial 6 derived rasters not reused. Yearly LULC moves to Phase 4.
+      Reason: single-year LULC across 23 years is a weakness. Yearly MODIS
+      MCD12Q1 matches the 500 m grid.
+      Affects: Phase 2, Phase 4.
+
+
+12. TO CONFIRM BEFORE THE DISSERTATION
+--------------------------------------
+Fill these in from your own records.
+  DEM source and year:               ____________
+  rivers.shp source, date, features: ____________
+  roads.shp source, date, features:  ____________
+  Settlement threshold (500 m2):     keep or change, and why
+  Grid size read from static_stack.tif (expected 76 x 158): ____________
+
+
+13. SUCCESS NOTE
+----------------
+Phase 2 is complete. static_stack.tif is the frozen static input for the
+modelling table. Do not edit it after this point.
+
+Next: Phase 3 (burned-area labels per fire season).

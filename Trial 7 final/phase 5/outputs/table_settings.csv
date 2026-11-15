@@ -1,0 +1,6 @@
+setting,value
+training years,2002 to 2015
+test years,2016 to 2024
+spatial block size (m),5000
+random seed,42
+predictors,14

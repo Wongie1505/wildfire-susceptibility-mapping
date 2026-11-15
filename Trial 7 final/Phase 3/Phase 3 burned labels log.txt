@@ -1,0 +1,245 @@
+PHASE 3: BURNED-AREA LABELS (TRIAL 7)
+=====================================
+
+Status: COMPLETE. Date run: 15 November 2026.
+
+Context. Trial 7 is a declared new analysis, started after the Trial 6 test
+results were known (Random Forest test AUC 0.571). No model has been trained
+in Trial 7 and no test result was used for any choice in this phase.
+
+
+1. PURPOSE
+----------
+Build the response variable for every 500 m forest cell and every fire season
+from 2002 to 2024: did the cell burn between 1 July and 31 December?
+
+Trial 6 used FIRMS active-fire points as the "fire" class and drew random
+points as the "no fire" class, kept 500 m away from every detection. That
+design had two weaknesses:
+  (a) A FIRMS point is a snapshot of a hot spot. Fires between satellite
+      passes, under cloud or smoke, or too small to detect were never
+      recorded, so some "no fire" points had actually burned.
+  (b) The 500 m buffer made the "no fire" points systematically far from
+      fires. Part of the model's skill was distance to a recorded fire, which
+      is why the buffer sensitivity test showed AUC rising with the buffer.
+
+Trial 7 replaces both. Burned area maps the burn scar, which stays visible for
+weeks, and every forest cell is labelled in every season. No point is invented.
+
+
+2. WHAT WAS DONE
+----------------
+- Exported, from Google Earth Engine, two files per fire season (46 files):
+    burned_YYYY.tif     1 = burned, 0 = not burned, -9999 = no usable label
+    burn_day_YYYY.tif   day of year of the first burn that season, 0 = not
+                        burned, -9999 = no usable label
+- Checked that all 46 files sit exactly on the Phase 2 grid.
+- Blanked every cell outside the forest, using the mask from static_stack.tif.
+- Counted burned and not-burned cells per season.
+- Compared the labels with the old Trial 6 FIRMS fire events.
+
+No multi-band stacks were made in this phase. Each season is its own file.
+
+
+3. HOW IT WAS DONE
+------------------
+Scripts: gee_burned_area.js (Earth Engine), build_labels.py (Spyder).
+
+Source: MODIS MCD64A1 Collection 6.1 monthly burned area, asset
+MODIS/061/MCD64A1, bands BurnDate and QA. Native resolution about 463 m
+(sinusoidal grid), nominally 500 m.
+
+Step 1. Fire season. Six monthly images per year, July to December. The
+  script prints the number of images per season, and it should be 6 for every
+  year.
+Step 2. Burned label. A cell is burned (1) if BurnDate is above 0 in any of
+  the six months, otherwise 0. GEE can mask BurnDate = 0, so masked values are
+  filled with 0 before the test (see section 8).
+Step 3. Burn day. The earliest BurnDate in the season (day of year). For
+  reference, 182 is 1 July, 244 is 1 September, 274 is 1 October, 305 is
+  1 November and 335 is 1 December in a non-leap year.
+Step 4. Quality rule. The script can require good QA (land and sufficient
+  valid data, QA bits 0 and 1) in a minimum number of months before accepting
+  a "not burned" label. MIN_VALID_MONTHS was set to 0, so no QA requirement
+  was applied. A burned cell is always kept.
+Step 5. Grid. Exported with crs EPSG:32736 and an explicit crsTransform, so
+  the cells line up exactly with static_stack.tif (500 m, origin snapped to
+  multiples of 500). The 463 m source is resampled to the 500 m grid by
+  nearest neighbour, the default.
+Step 6. Cleaning in Python. For each year the script checks the grid against
+  static_stack.tif and stops with a message if it differs, sets cells outside
+  the forest to -9999, and writes clean single-band files.
+Step 7. FIRMS check. The Trial 6 events (fire_events.csv, July to December,
+  confidence filter and clustering as defined in Trial 6) were converted to
+  EPSG:32736 and assigned to a 500 m cell. For each event the script asks
+  whether that cell, and whether any of the 3 x 3 cells around it, is burned
+  in the same year.
+
+
+4. WHY EACH CHOICE WAS MADE
+---------------------------
+- Burned area instead of active-fire points: it records that a fire happened,
+  not just that something was hot during a satellite pass.
+- Every cell labelled every season: removes the invented "no fire" points and
+  the buffer artifact described in section 1.
+- One row per cell per season (built in Phase 5): the model can use that
+  season's rainfall, dryness and fuel, which Trial 6 could not.
+- July to December: carried over from Trial 6. It still needs checking against
+  the burn day histogram (section 12).
+- MIN_VALID_MONTHS = 0: the strict first version removed nearly every
+  "not burned" cell (section 8). QA only matters in cloudy months, and July to
+  December is mostly dry season in Malawi. Raise it only after checking the
+  "Mean valid months" console output.
+- Nearest neighbour resampling: burned or not is a category. Averaging would
+  create fractions that are not labels.
+- Labels from MCD64A1 only, as the main result: one published, peer-reviewed
+  source with documented accuracy. A union with FIRMS is kept for a declared
+  sensitivity test (section 11).
+- Study period ends in 2024: set in Trial 6 and kept. 2025 was considered as
+  an untouched test year and not used. The 2016 to 2024 test years were already
+  scored in Trial 6, so they are not blind in the strict sense. This must be
+  stated in the limitations.
+
+
+5. INPUT FILES
+--------------
+Folder Phase 3/data/:
+  static_stack/static_stack.tif         from Phase 2 (grid and forest mask)
+  gee_exports/burned_YYYY.tif           23 files, 2002 to 2024
+  gee_exports/burn_day_YYYY.tif         23 files, 2002 to 2024
+  fires_old/fire_events.csv             Trial 6 FIRMS events, 4,244 rows
+
+
+6. OUTPUT FILES
+---------------
+Folder Phase 3/outputs/:
+  burned/burned_YYYY.tif        23 files, cleaned, 1 band, int16, nodata -9999
+  burn_day/burn_day_YYYY.tif    23 files, cleaned, 1 band, int16, nodata -9999
+  label_counts.csv              cells and burned share per season
+  firms_agreement.csv           FIRMS check per season plus a TOTAL row
+
+
+7. RESULTS
+----------
+Labels (label_counts.csv):
+  Cells in the forest: 6,306 per season. Cells with no label: 0 in every
+  season. Labelled cell-seasons: 145,038 (6,306 x 23).
+  Burned: 21,517 (14.8%). Not burned: 123,521 (85.2%).
+  Burned share by season ranges from 3.6% (2006) to 30.2% (2016).
+  Mean of the 23 seasons: 14.8%.
+  The model therefore trains on imbalanced classes, about 1 burned to 5.7 not
+  burned. Phase 6 will handle this with class weights, not by deleting cells.
+
+FIRMS agreement (firms_agreement.csv, TOTAL row):
+  FIRMS events: 4,244. On labelled cells: 4,228 (16 fall on cells outside
+  the forest mask).
+  Event falls in a burned cell:     1,194 of 4,228 = 28.2%
+  Event within 1 cell of a burn:    2,419 of 4,228 = 57.2%
+  Share of all cells that burned:   14.8% (the agreement expected by chance
+  for the same-cell test)
+  Same-cell agreement is about 1.9 times the chance level overall, and above
+  chance in all 23 seasons (ratio from 1.4 in 2016 to 2.9 in 2007).
+  Agreement rises in heavy fire years (2015 and 2016 are the highest, at 39.8%
+  and 41.9%), which is what real signal would do.
+
+Reading the result: the labels carry real fire information, but they are not
+perfect. About 72% of FIRMS events sit in a cell that MCD64A1 maps as not
+burned.
+
+
+8. CHALLENGES AND FIXES
+-----------------------
+1. First GEE version produced only burned cells. The first run gave a burned
+   share of 100% and 21,517 rows instead of about 145,000, and FIRMS agreement
+   of 100%. Every "not burned" cell had lost its label. The script required
+   good QA in all six months, and treated a masked BurnDate as missing data.
+   The most likely cause is that GEE masks BurnDate = 0, so unburned cells
+   looked like missing cells. This was not proved separately. Fix: masked
+   BurnDate is now filled with 0 before testing, and the QA rule is switched
+   off with MIN_VALID_MONTHS = 0. The rerun gave 145,038 labelled cell-seasons.
+   Note that 21,517 is exactly the burned count of the corrected run, which
+   confirms that only burned cells survived in the first version.
+2. Confusion over stacks. Exporting 23 bands in one file made the outputs hard
+   to read. Changed to one file per season and per variable, and the Phase 3
+   output is individual files only.
+3. Choice of end year. 2025 was considered. It was not used, because the
+   predictors and Phase 2 to 4 work are built to 2024.
+
+
+9. LIMITATIONS
+--------------
+- MCD64A1 can miss small burns and burns under canopy. Chikangawa is a pine
+  plantation, and the FIRMS check suggests a real share of fires is missed.
+  This is a likely explanation and not a proven one.
+- Cells labelled "not burned" therefore include some that burned. Label noise
+  is reduced against Trial 6, not removed.
+- Source pixels are about 463 m and the grid is 500 m. Nearest neighbour
+  sampling skips about 14% of source pixels (1 minus (463.3 / 500) squared)
+  and can shift a burn by up to half a pixel.
+- A FIRMS point comes from a roughly 1 km pixel with geolocation error, so
+  perfect same-cell agreement is not expected. The 3 x 3 result is the fairer
+  comparison.
+- With MIN_VALID_MONTHS = 0, a cell with poor observations in several months
+  can be labelled not burned.
+- The 2016 to 2024 years were scored in Trial 6, so they are not a blind test.
+
+
+10. WHAT THE DISSERTATION SHOULD NOTE
+-------------------------------------
+- Suggested wording: "Fire occurrence was derived from the MODIS MCD64A1
+  Collection 6.1 monthly burned-area product. A cell was labelled burned if
+  any monthly image between 1 July and 31 December recorded a burn date, and
+  every forest cell was labelled in every season from 2002 to 2024. No
+  non-fire points were sampled, so no buffer around fires was needed."
+- State why this replaced FIRMS points plus random non-fire points (section 1).
+- Report the label summary (section 7) and the FIRMS agreement: 28.2% in the
+  same cell against 14.8% expected by chance, and 57.2% within one cell.
+- State the class balance (14.8% burned) and that class weights, not
+  resampling of cells, handle it.
+- State the main limitation: possible omission of small and under-canopy burns.
+- Cite: Giglio, L., Boschetti, L., Roy, D.P., Humber, M.L. and Justice, C.O.
+  (2018). The Collection 6 MODIS burned area mapping algorithm and product.
+  Remote Sensing of Environment, 217, 72 to 85.
+- Data citation: Giglio, L., Justice, C., Boschetti, L. and Roy, D. (2021).
+  MODIS/Terra+Aqua Burned Area Monthly L3 Global 500m SIN Grid V061. NASA LP
+  DAAC. https://doi.org/10.5067/MODIS/MCD64A1.061
+
+
+11. DECISIONS TO ADD TO THE PROJECT DECISIONS LOG
+-------------------------------------------------
+T7-6.  Response variable: MCD64A1 C6.1 burned area, one label per 500 m cell
+       per fire season, July to December, 2002 to 2024. No random non-fire
+       points and no buffer.
+       Reason: removes label noise from missed fires and the buffer artifact.
+T7-7.  QA rule off (MIN_VALID_MONTHS = 0) for "not burned" cells.
+       Reason: the strict rule removed almost all unburned cells.
+T7-8.  Nearest neighbour resampling from the 463 m source to the 500 m grid.
+T7-9.  MCD64A1-only labels are the main result. A union label (MCD64A1 burned
+       OR a FIRMS event inside the cell) is a sensitivity test, declared here
+       before it is run, and reported whatever it shows. It is judged on
+       training spatial CV only, never on the test years.
+T7-10. Study period ends in 2024. 2025 not used.
+T7-11. Outputs are individual files per season. Stacks are not used, apart
+       from static_stack.tif.
+
+
+12. TO CONFIRM BEFORE THE DISSERTATION
+--------------------------------------
+Fill these in from your own records.
+  GEE console, "Images per season":            all 23 show 6?   ________
+  GEE console, "Burned share 2015":            expected about 0.28 (27.96%
+                                               in label_counts.csv) ________
+  GEE console, "Mean valid months 2015":       ________
+  All 46 Drive exports completed and copied:   ________
+  Burn day histogram (confirms July to Dec):   peaks in ________, any burns
+                                               in the first half of the year?
+  Layer properties of static_stack.tif match X0, Y1, NCOL, NROW in the JS: ____
+
+
+13. SUCCESS NOTE
+----------------
+Phase 3 is complete. The 23 burned_YYYY.tif files are the frozen response
+variable for the main analysis. Do not edit them after this point.
+
+Next: Phase 4 (seasonal predictors: pre-fire rainfall, NDMI and LST anomalies,
+last wet-season NDVI, fire history, yearly LULC).

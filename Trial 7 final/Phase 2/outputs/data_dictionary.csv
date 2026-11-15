@@ -1,0 +1,8 @@
+layer,source,unit,method,nodata,crs,cell_size_m
+dem,Viphya_DEM.tif,m,Mean of 30 m cells,-9999,EPSG:32736,500
+slope,Derived from DEM,degrees,"Computed at 30 m, then mean",-9999,EPSG:32736,500
+aspect_east,Derived from DEM,-1 to 1,"Sine of aspect at 30 m, then mean",-9999,EPSG:32736,500
+aspect_north,Derived from DEM,-1 to 1,"Cosine of aspect at 30 m, then mean",-9999,EPSG:32736,500
+rivers_dist,rivers.shp,m,Cell centre to nearest feature,-9999,EPSG:32736,500
+roads_dist,roads.shp,m,Cell centre to nearest feature,-9999,EPSG:32736,500
+settlement_dist,GHSL built-up 2000,m,Cell centre to nearest 100 m cell >= 500 m2 built,-9999,EPSG:32736,500

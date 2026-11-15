@@ -1,0 +1,232 @@
+PHASE 5: MODELLING TABLE (TRIAL 7)
+==================================
+
+Status: COMPLETE. Date run: 15 November 2026.
+
+Context. Trial 7 is a declared new analysis, started after the Trial 6 test
+results were known (Random Forest test AUC 0.571). No model has been trained
+in Trial 7 and no test result was used for any choice in this phase.
+
+
+1. PURPOSE
+----------
+Merge everything built so far into one table, check it for redundancy and
+leakage, and freeze it. After this phase the data does not change. Every later
+phase reads the same table.
+
+
+2. WHAT WAS DONE
+----------------
+- Merged the static stack (Phase 2), the burned labels (Phase 3) and the
+  seasonal predictors (Phase 4) into one row per forest cell per fire season.
+- Added a 5 km spatial block ID to every row, for spatial cross-validation.
+- Flagged each row as training (2002 to 2015) or test (2016 to 2024).
+- Checked collinearity between the 14 predictors, on training rows only.
+- Checked each predictor alone against the label, as a leakage test.
+- Produced two figures for the dissertation.
+
+
+3. HOW IT WAS DONE
+------------------
+Script: build_table.py (Spyder).
+
+Step 1. For each season 2002 to 2024, read the burned map, the seven static
+  bands and the seven seasonal predictor files. All files were checked against
+  the Phase 2 grid, and the script stops if one is off.
+Step 2. A row is kept if the cell is inside the forest, has a label, and has a
+  value in all 14 predictors. Rows that fail any of these are dropped and
+  counted.
+Step 3. Each row records: cell_id (row x width + column), x and y of the cell
+  centre, year, split (train or test), block_id, burned, and the 14 predictors.
+Step 4. Block ID: floor(x / 5000) and floor(y / 5000) of the cell centre in
+  EPSG:32736, joined as for example "115_1744". This is the same method as
+  Trial 6.
+Step 5. Collinearity: Spearman correlation between all 14 predictors, training
+  rows only. Pairs with an absolute value of 0.7 or more are listed.
+Step 6. Leakage check: for each predictor, the AUC of that predictor alone
+  against the burned label, training rows only, with direction ignored
+  (the larger of AUC and 1 - AUC). A value above about 0.80 would suggest that
+  the predictor knows about the fire.
+Step 7. Figures: a heatmap of the correlation matrix and a bar chart of the
+  single-predictor AUCs, saved at 300 dpi.
+
+The 14 predictors
+  Static (Phase 2):   dem, slope, aspect_east, aspect_north, rivers_dist,
+                      roads_dist, settlement_dist
+  Seasonal (Phase 4): rain_anomaly, ndvi_peak, ndmi_anomaly, lst_anomaly,
+                      lulc, burn_count_3yr, years_since_burn
+
+
+4. WHY EACH CHOICE WAS MADE
+---------------------------
+- One row per cell per season: the model can use each season's own rainfall,
+  dryness and fuel. Trial 6 had one row per fire or non-fire point, with period
+  medians.
+- Train 2002 to 2015, test 2016 to 2024: carried over from Trial 6 so the two
+  trials are comparable. The test rows are locked and used once at the end.
+- 5 km blocks: neighbouring cells are alike, so a random split lets the model
+  see neighbours of the cells it is scored on. Holding out whole blocks gives a
+  fairer score.
+- Spearman, not Pearson: several predictors are skewed, such as distances and
+  years since burn, and Spearman needs no straight-line assumption.
+- Training rows only for both checks: looking at the test rows to choose
+  predictors would be a quiet form of peeking.
+- Single-predictor AUC as the leakage test: a predictor that secretly contains
+  the answer, such as one measured after the fire, would score far above the
+  others.
+- Coordinates (x, y) are in the table for blocks and mapping only. They are not
+  predictors.
+
+
+5. INPUT FILES
+--------------
+Folder Phase 5/data/ (copies, unchanged):
+  static_stack/static_stack.tif            Phase 2
+  burned/burned_YYYY.tif                   Phase 3, 23 files
+  predictors/<predictor>/<predictor>_YYYY.tif   Phase 4, 7 folders
+
+
+6. OUTPUT FILES
+---------------
+Folder Phase 5/outputs/:
+  modelling_table.csv        145,038 rows, the frozen table
+  table_summary.csv          rows and burned share by split
+  collinearity.csv           pairs with |Spearman| of 0.7 or more
+  single_predictor_auc.csv   AUC of each predictor alone
+  table_settings.csv         split years, block size, seed, predictor count
+  figures/collinearity_heatmap.png
+  figures/single_predictor_auc.png
+
+
+7. RESULTS
+----------
+Table (printed by the script):
+  Rows: 145,038 (6,306 cells x 23 seasons). Dropped for missing values: 0.
+  Training 2002 to 2015: 88,284 rows, 12,743 burned (14.43%), 92 blocks.
+  Test 2016 to 2024:     56,754 rows,  8,774 burned (15.46%), 92 blocks.
+  Total burned: 21,517 (14.84%), which matches Phase 3.
+  The class balance is similar in the two periods, so the test years are not a
+  different kind of problem.
+
+Collinearity (training rows, Spearman):
+  One pair at or above 0.7: burn_count_3yr and years_since_burn, rho = -0.945.
+  Both describe how recently a cell burned.
+  Moderate pairs below the threshold, all terrain related:
+    distance to roads and distance to rivers   -0.68
+    distance to rivers and elevation            0.55
+    distance to rivers and slope               -0.54
+    distance to roads and slope                 0.54
+    distance to roads and elevation            -0.43
+    distance to settlements and roads           0.42
+    slope and elevation                         -0.40
+  All other pairs are below 0.4 in absolute value.
+
+Leakage check (AUC of each predictor alone, training rows):
+  burn_count_3yr 0.629, years_since_burn 0.627, lulc 0.606,
+  lst_anomaly 0.551, ndmi_anomaly 0.529, rain_anomaly 0.525,
+  roads_dist 0.521, dem 0.521, slope 0.519, aspect_east 0.513,
+  rivers_dist 0.509, settlement_dist 0.507, ndvi_peak 0.506,
+  aspect_north 0.504.
+  No predictor is near the 0.80 warning line. The highest is 0.629.
+
+Reading the result: the table is complete and shows no sign of leakage. The
+strongest single signals are fire history and land cover. The seasonal climate
+predictors (LST, NDMI, rainfall) are individually weak, at 0.525 to 0.551. The
+burned share changes from 3.6% to 30.2% between seasons, and these predictors
+have to carry that change. This is an early sign that the temporal signal may
+be modest. The model can combine predictors better than any one alone, but it
+is not guaranteed to reach a high test AUC.
+
+
+8. CHALLENGES AND FIXES
+-----------------------
+1. Block ID crash. The first version added text arrays with the plus operator,
+   which fails on some numpy versions (UFuncTypeError). It worked in testing
+   and failed on the author's machine. Fix: the block ID is now
+   built with pandas strings, which works on every version.
+2. Wrong burned percentage. The first printout showed burned_pct as 0.33 and
+   0.45. The cause was an overflow: the burned column is stored as int16, and
+   100 times a count above 327 exceeds the int16 range. The counts and row
+   numbers were correct, and the real values are 14.43% and 15.46%. Fix: the
+   column is converted to a larger type before the percentage is calculated.
+   The script was rerun, and table_summary.csv holds the correct values. The
+   modelling table itself was never affected.
+3. Figure layout. The first heatmap had an empty first row and last column, the
+   colourbar label overlapped its own numbers, and the bar chart legend covered
+   the 0.80 line. All three were corrected.
+
+
+9. LIMITATIONS
+--------------
+- Land cover enters as its numeric class code. Class numbers have no real
+  order. Random Forest can still split on them, but it may need extra splits to
+  separate classes. One-hot coding was not used, as in Trial 6.
+- The two fire history predictors are almost the same information (rho -0.945).
+  Their importance is split between them, so they must be reported together.
+- Most seasonal climate predictors are weak alone, and CHIRPS and LST are
+  coarse (see the Phase 4 log).
+- The 5 km blocks reduce spatial leakage but do not remove it. Cells in
+  neighbouring blocks are still similar.
+- Training and test years come from one study area. The test years are not
+  independent of Trial 6, since their scores were seen there.
+- The leakage check is a screen and not a proof. The fire history predictors
+  are built from past burned maps. They only use earlier seasons, so they are
+  not leakage, but they carry any labelling errors of those seasons forward.
+
+
+10. WHAT THE DISSERTATION SHOULD NOTE
+-------------------------------------
+- Suggested wording: "The modelling table contains one row per 500 m forest
+  cell per fire season (145,038 rows), 14 predictors, and a 5 km spatial block
+  ID. Seasons 2002 to 2015 form the training set and 2016 to 2024 the test set,
+  which was not used for any modelling decision."
+- Show the two figures. The heatmap supports the choice of predictors. The
+  single-predictor chart shows that no predictor carries the answer by itself.
+- Report the collinearity result and the decision to keep both fire history
+  predictors (section 11), with grouped permutation importance.
+- Report the class balance, 14.4% burned in training and 15.5% in test.
+- State the screening threshold: an absolute Spearman value of 0.7 is a common
+  rule of thumb for collinearity problems. Cite: Dormann, C.F. et al. (2013).
+  Collinearity: a review of methods to deal with it and a simulation study
+  evaluating their performance. Ecography, 36, 27 to 46.
+- State the limitation on land cover coding.
+
+
+11. DECISIONS TO ADD TO THE PROJECT DECISIONS LOG
+-------------------------------------------------
+T7-20. The modelling table has one row per forest cell per season, 14
+       predictors, 145,038 rows. It is frozen after this phase.
+T7-21. Split carried over from Trial 6: training 2002 to 2015, test 2016 to
+       2024. Test rows are locked until the final score.
+T7-22. Spatial blocks of 5 km (D15 carried over), block_id stored in the table.
+       Random seed 42.
+T7-23. Collinearity: only one pair is at or above 0.7 (burn_count_3yr and
+       years_since_burn, rho -0.945). Both are kept. Their importance is
+       reported as one group (grouped permutation importance).
+T7-24. Declared check, decided before it is run: in Phase 6 the Random Forest
+       is trained three times on the training years only, with (a) both fire
+       history predictors, (b) burn_count_3yr only, and (c) years_since_burn
+       only. The versions are compared by spatial-block cross-validation. The
+       test years are not used for this comparison. The result is reported
+       whatever it shows.
+T7-25. Land cover stays as a numeric class code.
+T7-26. Predictors are screened on training rows only. Coordinates are not
+       predictors.
+
+
+12. TO CONFIRM BEFORE THE DISSERTATION
+--------------------------------------
+Fill these in from your own records.
+  table_summary.csv shows 14.43% and 15.46% after the rerun:   ____________
+  Both figures read clearly at print size (labels not clipped): ____________
+  Total file size of modelling_table.csv:                       ____________
+
+
+13. SUCCESS NOTE
+----------------
+Phase 5 is complete. modelling_table.csv is frozen. Do not edit it after this
+point.
+
+Next: Phase 6 (Random Forest on the training years, with spatial-block
+cross-validation and forward chaining, and the three fire-history variants in
+T7-24).

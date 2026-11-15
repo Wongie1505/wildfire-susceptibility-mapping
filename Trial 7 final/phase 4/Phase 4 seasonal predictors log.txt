@@ -1,0 +1,274 @@
+PHASE 4: SEASONAL PREDICTORS (TRIAL 7)
+======================================
+
+Status: COMPLETE. Date run: 15 November 2026.
+
+Context. Trial 7 is a declared new analysis, started after the Trial 6 test
+results were known (Random Forest test AUC 0.571). No model has been trained
+in Trial 7 and no test result was used for any choice in this phase.
+
+
+1. PURPOSE
+----------
+Give the model a "when" signal. In Trial 6 the dynamic predictors (NDVI, NDMI,
+LST, rainfall) were period medians, so a cell had the same value in every fire
+season within a period. The model could learn where fires happen but not which
+years were bad. In Trial 7 every cell gets its own value for every season from
+2002 to 2024, describing the vegetation and weather in the months before the
+fire season starts.
+
+A second problem is also addressed. Absolute period values shifted between
+the training and test periods in Trial 6 (mean rainfall 355 in training against
+318 in test, mean LST 26.2 against 27.1 degrees). Anomalies put every season on
+a common scale relative to a training period normal. They cannot remove a real
+climate difference between the periods, only make it visible (section 7).
+
+
+2. WHAT WAS DONE
+----------------
+Seven seasonal predictors were built for each of the 23 seasons (161 files).
+Five come from Google Earth Engine, two from the Phase 3 burned maps.
+
+  rain_anomaly      CHIRPS rainfall, 1 Nov (Y-1) to 30 Apr (Y), as % of normal
+  ndvi_peak         highest MODIS NDVI, 1 Dec (Y-1) to 30 Apr (Y)
+  ndmi_anomaly      mean MODIS NDMI, 1 May to 30 Jun (Y), minus normal
+  lst_anomaly       mean MODIS day LST in deg C, 1 May to 30 Jun (Y), minus normal
+  lulc              MODIS land cover class (IGBP) of the previous year (Y-1)
+  burn_count_3yr    number of the previous 3 seasons in which the cell burned
+  years_since_burn  years since the cell last burned, capped at 5
+
+Y is the fire season being predicted (the season runs 1 July to 31 December).
+Every predictor is measured before 1 July of that season. One extra file,
+burned_2001.tif, was exported so that fire history exists for 2002.
+
+
+3. HOW IT WAS DONE
+------------------
+Scripts: gee_predictors.js (Earth Engine) and build_predictors.py (Spyder).
+
+Sources:
+  CHIRPS daily rainfall        UCSB-CHG/CHIRPS/DAILY, about 5 km
+  MODIS MOD09A1 V061           8-day surface reflectance, 500 m
+  MODIS MOD11A2 V061           8-day land surface temperature, 1 km
+  MODIS MCD12Q1 V061           yearly land cover, band LC_Type1 (IGBP)
+  MODIS MCD64A1 V061           monthly burned area (for burned_2001)
+
+Step 1. Rainfall. Daily CHIRPS summed from 1 November of the previous year to
+  30 April. Divided by the normal and multiplied by 100, so 100 is an average
+  wet season.
+Step 2. NDVI and NDMI. From MOD09A1 reflectance scaled by 0.0001.
+    NDVI = (NIR - Red) / (NIR + Red), bands 2 and 1.
+    NDMI = (NIR - SWIR1) / (NIR + SWIR1), bands 2 and 6.
+  Both were clamped to the valid range of -1 to 1.
+  NDVI peak uses no cloud mask. Clouds lower NDVI, so the maximum over the
+  8-day composites already ignores them.
+  NDMI uses a cloud mask (cloud state, cloud shadow, internal cloud flag from
+  StateQA). Where no clear observation exists in May and June, the value falls
+  back to clear observations from April to June, and as a last resort to May
+  and June without the mask.
+Step 3. LST. MOD11A2 daytime LST (LST_Day_1km), good and other-quality pixels
+  kept (QC_Day bits 0 and 1 at most 1), converted to deg C (x 0.02 - 273.15).
+  Mean of May and June.
+Step 4. Anomalies. "Normal" is the average of each measure over the training
+  years 2002 to 2015 only. NDMI and LST anomalies are the season value minus
+  the normal. Rainfall is the season value as a percentage of the normal.
+Step 5. Land cover. The map for year Y-1, so the 2010 file holds the 2009 map.
+Step 6. Resampling. Everything was exported to the Phase 2 grid (EPSG:32736,
+  500 m, same origin) with an explicit crsTransform, using the default nearest
+  neighbour resampling.
+Step 7. Fire history (Python). From the burned maps: burn_count_3yr sums
+  burned seasons in Y-1, Y-2 and Y-3. years_since_burn is the number of years
+  back to the most recent burn within 5 seasons, and 5 if there was none.
+  burned_2001 comes from GEE, using the same rule as Phase 3. Later seasons
+  come from the Phase 3 burned maps.
+Step 8. Cleaning and check (Python). Each file is checked against the Phase 2
+  grid, cells outside the forest are set to -9999, and predictor_check.csv
+  records the empty cells and value range of every file.
+
+
+4. WHY EACH CHOICE WAS MADE
+---------------------------
+- Before 1 July: fire changes the satellite signal. A burned cell has a lower
+  NDVI and a hotter surface. Measuring inside the fire season would let the
+  model recognise burn scars instead of predicting risk.
+- Two windows, not one. The predictors answer two different questions:
+    Fuel (how much grass and litter grew): the wet season, November to April.
+    Dryness (how dry is it just before burning starts): May and June.
+  Rain in July to December is mostly zero and says little. The windows are
+  called the "fuel window" and the "dryness window".
+- Same window for every cell in a season: using each cell's own burn date would
+  give burned and unburned cells different kinds of data, and the model could
+  learn that difference instead of fire risk.
+- Normals from the training years only: if the test years helped define normal,
+  that would be a quiet form of peeking.
+- Previous-year land cover: the map for year Y could already be shaped by that
+  year's fires.
+- Fire history: recent burns remove fuel, long unburned cells carry more. It is
+  widely found to be a strong fire predictor and uses only past seasons.
+- Nearest neighbour for CHIRPS and LST: it keeps the original values. It adds
+  no detail, and is used only to put everything on one grid.
+- No cloud mask for the NDVI peak, and fallbacks for NDMI: see section 8.
+
+
+5. INPUT FILES
+--------------
+Folder Phase 4/data/:
+  static_stack/static_stack.tif                from Phase 2 (grid and forest mask)
+  burned/burned_YYYY.tif                       from Phase 3, 2002 to 2023
+  gee_exports/<predictor>/<predictor>_YYYY.tif five GEE predictors, 115 files
+  gee_exports/fire_history/burned_2001.tif     1 file
+GEE exports: 116 files in total, started with Run all.
+
+
+6. OUTPUT FILES
+---------------
+Folder Phase 4/outputs/, one clean file per season in each folder, int16 or
+float32, nodata -9999, forest cells only:
+  P4_rain_anomaly, P4_ndvi_peak, P4_ndmi_anomaly, P4_lst_anomaly, P4_lulc,
+  burn_count_3yr, years_since_burn
+  predictor_check.csv     161 rows, one per file
+Folder names are as written in predictor_check.csv.
+
+
+7. RESULTS
+----------
+After the fix in section 8: 161 files checked, 0 files with empty forest cells.
+
+Value ranges over all seasons (predictor_check.csv):
+  rain_anomaly      67.8 to 146.5 % of normal. Training-year mean 100.0 (by
+                    construction). Test-year mean 109.8. Yearly means 77.0 to
+                    131.2.
+  ndvi_peak         0.400 to 1.000, mean 0.841. Training 0.840, test 0.842.
+  ndmi_anomaly      -0.374 to 0.400. Training 0.000, test -0.005. Yearly means
+                    -0.027 to 0.022.
+  lst_anomaly       -3.7 to 4.9 deg C. Training 0.0, test +0.27. Yearly means
+                    -1.36 to 0.98.
+  lulc              IGBP classes 1 to 12.
+  burn_count_3yr    0 to 3, mean 0.41.
+  years_since_burn  1 to 5, mean 3.90.
+
+First-run console check (before the NDVI and NDMI fix), mean over the forest:
+  2010: rain 113.6, NDVI peak 0.816, NDMI anomaly 0.012, LST anomaly 0.04
+  2020: rain 108.1, NDVI peak 0.834, NDMI anomaly -0.027, LST anomaly 0.99
+
+Reading the result: the values are in plausible ranges and the anomalies are
+centred where they should be. NDVI peak and NDMI show almost no shift between
+training and test. LST is 0.27 deg C warmer in the test period (the Trial 6
+absolute means differed by about 0.9 deg C). Rainfall is the one real shift:
+the test period is about 10% wetter than the training normal. Trial 6 rainfall
+was defined differently, so the two rainfall shifts are not directly
+comparable. The model will meet wetter test seasons than it was trained on,
+and this should be stated as a limitation.
+
+
+8. CHALLENGES AND FIXES
+-----------------------
+1. Gaps in the first export. The first Python check found 25 files with empty
+   forest cells, 4,102 empty values in total. All were in two predictors:
+     ndvi_peak: 17 files, up to 884 cells (14% of the forest) in 2014, then
+                488 in 2011 and 439 in 2020.
+     ndmi_anomaly: 8 files, up to 429 cells in 2005.
+   Cause: the cloud mask was too strict, especially in the cloudy rainy season
+   that the NDVI window covers. A cell with no value cannot be used in the
+   model.
+   Fix: NDVI peak now uses the unmasked composites, since the maximum already
+   skips clouds. NDMI falls back to a wider window and then to unmasked data.
+   Both NDVI and NDMI exports were redone (46 files) because the NDMI normal
+   changed. The second check showed 0 empty cells in all 161 files.
+2. NDVI above 1. The first NDVI peak reached 1.044, which is impossible, caused
+   by slightly negative reflectance. Fixed by clamping to -1 to 1. The maximum
+   is now exactly 1.000, so some cells sit at the clamp (section 12).
+3. Number of files. 116 exports would be too many to start by hand. They were
+   started with the Run all button in the Code Editor.
+4. Resolution mismatch. CHIRPS is about 5 km and LST is 1 km, while the grid is
+   500 m. Nearest neighbour was accepted as a way to align them, knowing it
+   adds no information.
+
+
+9. LIMITATIONS
+--------------
+- CHIRPS and LST have coarse native resolution. Neighbouring 500 m cells share
+  the same value, so these predictors say little about local differences.
+- Some NDMI cells use the wider window or unmasked data. The number of such
+  cells was not counted.
+- NDVI saturates in dense forest. Its range is narrow (yearly means 0.81 to
+  0.86), so it may separate cells poorly.
+- Fire history is incomplete in the first seasons. The record starts in 2001,
+  so burn_count_3yr is incomplete for 2002 and 2003, and years_since_burn is
+  incomplete for 2002 to 2005. A cell that burned earlier looks "never burned".
+- Fire history comes from the MCD64A1 labels, so missed burns carry into the
+  predictors. It can also dominate the model, which must be checked in
+  Phase 7.
+- Anomalies are measured against a training period normal. In the wetter,
+  warmer test period this is intended, and the shift is reported openly.
+- Land cover is a yearly classification, and a class can change between years
+  because of classification noise, not real change.
+- All cells in a season share one measurement window, not each cell's burn
+  date.
+
+
+10. WHAT THE DISSERTATION SHOULD NOTE
+-------------------------------------
+- Suggested wording: "Seasonal predictors were calculated for each fire season
+  from conditions before 1 July. A fuel window (November to April) gave rainfall
+  and peak NDVI, and a dryness window (May to June) gave NDMI and land surface
+  temperature anomalies. Anomalies were expressed relative to the 2002 to 2015
+  mean, so no information from the test years entered the normals."
+- State why predictors stop before the fire season (burn scars change the
+  signal) and why the windows differ.
+- State the change from Trial 6: period medians became seasonal values, and
+  absolute values became anomalies for rainfall, NDMI and LST.
+- Report the remaining test period shift (rain 109.8% of normal, LST +0.27
+  deg C).
+- State the data handling in section 8, including the NDVI and NDMI cloud
+  decisions.
+- Cite the datasets. Check the exact reference format on each Earth Engine
+  catalog page:
+    Funk, C. et al. (2015). The climate hazards infrared precipitation with
+      stations, a new environmental record for monitoring extremes. Scientific
+      Data, 2, 150066.
+    Vermote, E. and Wolfe, R. (2021). MODIS/Terra Surface Reflectance 8-Day L3
+      Global 500m SIN Grid V061. NASA LP DAAC.
+    Wan, Z., Hook, S. and Hulley, G. (2021). MODIS/Terra Land Surface
+      Temperature/Emissivity 8-Day L3 Global 1km SIN Grid V061. NASA LP DAAC.
+    Friedl, M. and Sulla-Menashe, D. (2022). MODIS/Terra+Aqua Land Cover Type
+      Yearly L3 Global 500m SIN Grid V061. NASA LP DAAC.
+
+
+11. DECISIONS TO ADD TO THE PROJECT DECISIONS LOG
+-------------------------------------------------
+T7-12. All seasonal predictors measured before 1 July of the season they
+       predict. Two windows: fuel (1 Nov to 30 Apr, rainfall and NDVI peak) and
+       dryness (1 May to 30 Jun, NDMI and LST).
+T7-13. Normals taken from the training years 2002 to 2015 only.
+T7-14. Rainfall as % of normal, NDMI and LST as differences from normal. NDVI
+       peak kept as an absolute value.
+T7-15. NDVI peak from unmasked composites. NDMI with a fallback chain (clear
+       May to June, clear April to June, unmasked May to June). Indices clamped
+       to -1 to 1.
+T7-16. Land cover of the previous year (Y-1).
+T7-17. Fire history from the MCD64A1 labels: burn_count_3yr and
+       years_since_burn (cap 5). The 2001 season added for history.
+T7-18. CHIRPS and LST aligned to the 500 m grid by nearest neighbour.
+T7-19. One measurement window for all cells in a season, not each cell's own
+       burn date.
+
+
+12. TO CONFIRM BEFORE THE DISSERTATION
+--------------------------------------
+Fill these in from your own records.
+  GEE console printout after the fix (2010 and 2020): ____________
+  Land cover classes present and their cell counts:   ____________
+  Number of ndvi_peak cells at exactly 1.000:         ____________
+  Citations checked against the catalog pages:        ____________
+  Predictor folders in outputs/ carry the P4_ prefix: keep or rename ____
+
+
+13. SUCCESS NOTE
+----------------
+Phase 4 is complete. The 161 files are the frozen predictors for the modelling
+table. Do not edit them after this point.
+
+Next: Phase 5 (modelling table: merge the static stack, labels and seasonal
+predictors, add spatial block IDs and the train and test split, check
+collinearity and leakage).
