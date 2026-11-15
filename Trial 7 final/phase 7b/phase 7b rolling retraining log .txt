@@ -1,0 +1,204 @@
+PHASE 7b: ROLLING RETRAINING, POST-TEST EXTENSION (TRIAL 7)
+===========================================================
+
+Status: COMPLETE. Date run: 15 November 2026.
+
+IMPORTANT. This phase was decided AFTER the test score of Phase 7a was known
+(decision T7-35). It is a diagnostic reported next to the headline result. It
+is not a blind test and it does not replace the headline result. The headline
+stays the static 6a model: pooled test AUC 0.6029.
+
+
+1. PURPOSE
+----------
+Phase 7a showed that the model's skill fades over the test years (AUC 0.70 in
+2017 and 0.55 in 2024). One possible cause is that the model, trained once on
+2002 to 2015, goes out of date. This phase tests that explanation. If the
+fade is caused by staleness, a model that is retrained every year should hold
+its skill.
+
+
+2. WHAT WAS DONE
+----------------
+- For each test year from 2016 to 2024, trained a new Random Forest on every
+  earlier year and scored that year.
+- Compared the result, year by year, with the static model from Phase 7a.
+- Ran a supporting check on whether the quality of the burned area labels
+  changed between the training and test periods, using the Phase 3 table of
+  agreement with FIRMS fire events.
+
+
+3. HOW IT WAS DONE
+------------------
+Script: phase7b_rolling_retrain.py (Spyder).
+
+Settings. The 6a winning settings, unchanged: max_depth 14, min_samples_leaf
+30, max_features 0.5, max_samples 0.5. 300 trees, class_weight
+balanced_subsample, seed 42. Nothing was tuned again.
+
+Rolling retraining (expanding window). For each test year t:
+  Training rows: every row with year before t. This includes the earlier test
+  years, because their fire outcomes would already be known in real use.
+  The training set grows from 88,284 rows (for 2016, identical to the static
+  model) to 138,732 rows (for 2024), by 6,306 rows per year.
+  Validation: the 6,306 cells of year t.
+Measures: AUC for each year, pooled AUC over the nine rolling predictions, and
+top 20% capture (the share of that year's burned cells that fall in the
+highest-scored fifth of cells). The static values come from the Phase 7a file
+test_results.csv.
+
+Safeguards. The script uses half of the available cores and refuses to run if
+rolling_results.csv already exists.
+
+Supporting label check. The Phase 3 file firms_agreement.csv gives, for each
+season, the share of FIRMS fire events that fall in a burned cell. The mean of
+that share was compared between 2002 to 2015 and 2016 to 2024. This check does
+not use the model.
+
+
+4. WHY EACH CHOICE WAS MADE
+---------------------------
+- Expanding window: it keeps all information and copies how an early warning
+  system would use last year's fires.
+- Same settings as 6a: the question is whether retraining helps, not whether
+  retuning helps. Retuning on the test years would invalidate the result.
+- Reported next to the headline: the rolling model sees earlier test labels, so
+  it is not a blind test. It is a forecast simulation and is labelled as one.
+- FIRMS agreement as a label check: if the fade came from worsening labels, the
+  agreement should fall over time. It is the only independent check of the
+  labels available in the project.
+
+
+5. INPUT FILES
+--------------
+Folder Phase 7b/data/:
+  modelling_table.csv    from Phase 5
+  best_settings.csv      from Phase 6a outputs
+  test_results.csv       from Phase 7a outputs
+For the label check: firms_agreement.csv from Phase 3 outputs.
+
+
+6. OUTPUT FILES
+---------------
+Folder Phase 7b/outputs/:
+  rolling_results.csv        static and rolling AUC by year, plus pooled values
+  rolling_predictions.csv    score for every test cell and season
+  rolling_vs_static.png      figure comparing the two models by year
+
+
+7. RESULTS
+----------
+  Year    Training rows   Static AUC   Rolling AUC   Difference
+  2016    88,284          0.6377       0.6377         0.0000
+  2017    94,590          0.7008       0.7127        +0.0119
+  2018    100,896         0.6817       0.6787        -0.0030
+  2019    107,202         0.6486       0.6471        -0.0015
+  2020    113,508         0.6153       0.6246        +0.0093
+  2021    119,814         0.6116       0.6137        +0.0021
+  2022    126,120         0.5831       0.6162        +0.0331
+  2023    132,426         0.5579       0.5850        +0.0271
+  2024    138,732         0.5521       0.5655        +0.0134
+  Pooled                  0.6029       0.6118        +0.0089
+
+  Mean yearly AUC: static 0.6210, rolling 0.6312 (difference +0.0102).
+  Top 20% capture, mean of the nine years: static 31.9%, rolling 33.1%.
+  First three years (2016 to 2018): static 0.673, rolling 0.676.
+  Last three years (2022 to 2024):  static 0.564, rolling 0.589.
+
+Supporting label check (Phase 3 firms_agreement.csv):
+  Share of FIRMS events inside a burned cell, mean of the seasons:
+    2002 to 2015: 24.9%        2016 to 2024: 27.4%
+  Share within one cell of a burn:
+    2002 to 2015: 50.2%        2016 to 2024: 58.9%
+  Agreement divided by the chance level (the burned share of cells):
+    2002 to 2015: 1.89         2016 to 2024: 1.90
+  In the test years the share in a burned cell was 22.6, 26.4, 23.6, 17.0,
+  27.5, 30.4, 32.7 and 24.7% for 2017 to 2024, with no downward trend.
+
+Reading the result:
+- Yearly retraining helps a little. The pooled AUC rises from 0.603 to 0.612
+  and the mean yearly AUC from 0.621 to 0.631.
+- Most single-year differences are 0.01 or smaller, within noise. The visible
+  gains are in 2022 (+0.033) and 2023 (+0.027). The first three years are
+  unchanged.
+- The fade remains. The rolling model falls from 0.713 in 2017 to 0.566 in
+  2024. A model going out of date explains only a small part of the decline.
+- The label check does not show worsening labels. Agreement with FIRMS is about
+  the same in both periods, and no downward trend appears across the test
+  years.
+- The cause of the decline therefore lies elsewhere. It was not identified.
+
+
+8. CHALLENGES AND FIXES
+-----------------------
+No technical problems. The nine refits ran as written. The label check was
+added after the rolling result, as a supporting step, and is marked as such.
+
+
+9. LIMITATIONS
+--------------
+- Decided after the test score was known. This is a post-test diagnostic.
+- The rolling model is trained on earlier test years, so its scores are not a
+  blind test. They are a forecast simulation.
+- The gain of 0.009 (pooled) and 0.010 (mean yearly) is small. No confidence
+  interval was calculated, and with nine seasons the uncertainty is large.
+- The settings were tuned for 88,284 training rows and were not tuned again for
+  the larger training sets.
+- Only an expanding window was tried. A sliding window that drops the oldest
+  years was not tested.
+- The FIRMS check covers one aspect of label quality. It would not detect a
+  steady under-detection of burns by MCD64A1 that affects both periods alike.
+- Remaining candidates for the decline are changes in fire drivers that the
+  predictors do not describe (for example fire management or ignition
+  behaviour), an out-of-date settlement layer (GHSL epoch 2000), and the wetter
+  test period (rainfall about 10% above the training normal). The data cannot
+  separate them.
+
+
+10. WHAT THE DISSERTATION SHOULD NOTE
+-------------------------------------
+- Present this as a diagnostic that followed the test result, and say so in
+  plain words. Report the static result as the headline.
+- Suggested wording: "To test whether the decline in skill over 2016 to 2024
+  reflected a model going out of date, the model was retrained each year on all
+  earlier years (rolling-origin evaluation). Retraining raised the mean yearly
+  AUC from 0.621 to 0.631 and the pooled AUC from 0.603 to 0.612, but the
+  decline persisted, so model age explains only a small part of it."
+- Report that the agreement between burned area and FIRMS did not worsen over
+  time, which argues against label degradation as the main cause.
+- State that the cause of the decline remains open, and list the candidates in
+  the limitations. Do not claim one of them.
+- Show rolling_vs_static.png.
+- Cite: Tashman, L.J. (2000). Out-of-sample tests of forecasting accuracy: an
+  analysis and review. International Journal of Forecasting, 16, 437 to 450.
+  Check the exact reference before use.
+
+
+11. DECISIONS TO ADD TO THE PROJECT DECISIONS LOG
+-------------------------------------------------
+T7-37. Rolling retraining carried out as declared in T7-35. Result: pooled AUC
+       0.6118 (static 0.6029), mean yearly AUC 0.6312 (static 0.6210). The
+       decline over the test years persists.
+T7-38. The headline result remains the static 6a model scored once (0.6029).
+       The rolling result is a post-test diagnostic and is reported as one.
+T7-39. Label quality was checked with the Phase 3 FIRMS agreement by period.
+       No worsening was found. This check was made after the test result.
+T7-40. No further changes to the model, its settings or its predictors are
+       made to chase a higher score. The remaining phases are mapping and
+       reporting.
+
+
+12. TO CONFIRM BEFORE THE DISSERTATION
+--------------------------------------
+Fill these in from your own records.
+  rolling_vs_static.png reads clearly at print size:        ____________
+  The model's performance target in the proposal (if any):  ____________
+  Whether to test a sliding window as a further diagnostic: ____________
+
+
+13. SUCCESS NOTE
+----------------
+Phase 7b is complete. rolling_results.csv is frozen and the script will not
+rerun. The headline result and the diagnostic are both on record.
+
+Next: Phase 7c (susceptibility map, class areas and map checks).

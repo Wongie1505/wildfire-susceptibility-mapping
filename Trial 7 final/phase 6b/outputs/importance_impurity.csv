@@ -1,0 +1,14 @@
+predictor,importance
+rain_anomaly,0.1608
+burn_count_3yr,0.1469
+rivers_dist,0.1052
+lst_anomaly,0.1031
+lulc,0.0877
+dem,0.0722
+roads_dist,0.0671
+settlement_dist,0.0557
+ndmi_anomaly,0.0525
+ndvi_peak,0.0468
+slope,0.0438
+aspect_east,0.0315
+aspect_north,0.0267

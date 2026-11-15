@@ -1,0 +1,235 @@
+PHASE 7a: TEST SCORING AND IMPORTANCE (TRIAL 7)
+===============================================
+
+Status: COMPLETE. Date run: 15 November 2026.
+Model scored: the 6a Random Forest (both fire history predictors), trained on
+2002 to 2015 only. It was scored once, on 2016 to 2024.
+
+Context. Trial 7 is a declared new analysis, started after the Trial 6 test
+results were known (Random Forest test AUC 0.571). The model and its settings
+were fixed in Phase 6, before this phase. No change was made to the model
+after the test score was seen.
+
+
+1. PURPOSE
+----------
+Measure how well the final model predicts fire in years it has never seen, and
+find out which predictors it relies on. This is the headline result of Trial 7.
+
+
+2. WHAT WAS DONE
+----------------
+- Loaded the saved 6a model and the 56,754 test rows (9 seasons x 6,306 cells).
+- Scored every test row once.
+- Calculated three measures: pooled AUC, AUC for each test year, and the "top
+  20% capture" rate.
+- Measured predictor importance by grouped permutation importance. The two fire
+  history predictors were shuffled together as one group.
+- Saved two figures and the predictions for later use.
+
+
+3. HOW IT WAS DONE
+------------------
+Script: phase7a_test_score.py (Spyder).
+
+Safeguard. The script refuses to run if test_results.csv already exists, so the
+test years cannot be scored twice by accident. A second run would need the file
+to be deleted on purpose, and would have to be disclosed.
+
+Step 1. Load. Only rows with split = test were kept. The model expects the 14
+  predictors in the order used in Phase 6, and the script stops if the count
+  differs.
+Step 2. Score. The model gives each cell a score between 0 and 1, which is
+  the predicted share of trees voting for fire. It is a relative susceptibility
+  score, not a calibrated probability.
+Step 3. Measures.
+    Pooled AUC: all 56,754 rows together. This is the same kind of number as the
+    Trial 6 test AUC (0.571).
+    AUC by year: each season scored on its own.
+    Top 20% capture: in each season, the cells are ranked by score. The measure
+    is the share of that season's burned cells that fall in the highest-scored
+    fifth of cells. Chance gives 20%.
+Step 4. Grouped permutation importance. One predictor at a time, or the two
+  fire history predictors together, is shuffled across the test rows and the
+  drop in pooled AUC is recorded. 5 repeats, seed 42. This step does not change
+  the model.
+Step 5. Figures at 300 dpi: AUC by year with the pooled value, the Trial 6
+  value and the chance line, and a bar chart of the AUC drops.
+
+
+4. WHY EACH CHOICE WAS MADE
+---------------------------
+- Scored once, with a lock: a test set is only a fair test if it is looked at
+  once. Repeated looks turn it into a second tuning set.
+- Pooled AUC and AUC by year: the pooled value allows comparison with Trial 6.
+  The yearly values show how skill changes between seasons. They do not hide a
+  weak year inside an average.
+- Top 20% capture: AUC is hard to explain, while "how many of the burned cells
+  fall in the top fifth of the map" is easy to explain and easy to check
+  against chance.
+- Grouped permutation importance: the two fire history predictors carry nearly
+  the same information (rho -0.945). Shuffled one at a time, each would look
+  weak, because the other covers for it. Shuffled together they show the real
+  weight of fire history.
+- Importance measured on the test rows after the score was fixed: it describes
+  what the model uses on unseen data and leads to no change in the model.
+
+
+5. INPUT FILES
+--------------
+Folder Phase 7a/data/:
+  modelling_table.csv    from Phase 5 (only the test rows are used)
+  rf_model.joblib        from Phase 6a outputs (6a only)
+
+
+6. OUTPUT FILES
+---------------
+Folder Phase 7a/outputs/:
+  test_results.csv          pooled and yearly AUC, burned share, top 20% capture
+  test_predictions.csv      score for every test cell and season
+  importance_grouped.csv    AUC drop for each predictor or group
+  test_results.png          AUC by test year
+  importance_grouped.png    predictor importance
+
+
+7. RESULTS
+----------
+Test rows: 56,754 (9 seasons x 6,306 cells), 8,774 burned (15.46%).
+
+Pooled test AUC: 0.6029. Trial 6 test AUC for the Random Forest: 0.571.
+
+Results by year (test_results.csv):
+
+  Year   Burned %   AUC      Top 20% capture %
+  2016   30.2       0.6377   30.9
+  2017    8.2       0.7008   45.0
+  2018   11.5       0.6817   33.8
+  2019   11.2       0.6486   36.2
+  2020    9.6       0.6153   34.0
+  2021   18.8       0.6116   30.1
+  2022   15.2       0.5831   25.1
+  2023   18.7       0.5579   26.4
+  2024   15.8       0.5521   25.3
+  All    15.5       0.6029   31.9 (mean of the nine years)
+
+Summaries:
+- Mean of the nine yearly AUC values: 0.621. The pooled AUC (0.603) is lower.
+- First three test years (2016 to 2018) average 0.673. Last three (2022 to
+  2024) average 0.564.
+- Top 20% capture averages 31.9% against 20% by chance. It is 45% in 2017 and
+  about 25% in 2022 to 2024.
+
+Grouped permutation importance (AUC drop when shuffled, mean and SD of 5):
+  fire history (both predictors)  0.0554 (0.0010)
+  land cover                      0.0138 (0.0005)
+  distance to rivers              0.0101 (0.0009)
+  distance to roads               0.0093 (0.0012)
+  distance to settlements         0.0044 (0.0003)
+  All other predictors are below 0.0044. See importance_grouped.csv.
+
+Reference points from Phase 6 (training years only):
+  Spatial-block CV AUC 0.759. Forward chaining AUC 0.6615 (2009 to 2015).
+
+Reading the result:
+- The model is better than Trial 6 (0.603 against 0.571), a gain of 0.032, but
+  the gain is modest.
+- Skill falls with distance from the training period. It is highest in 2017 and
+  lowest in 2023 and 2024. The decline is the main finding of this phase.
+- The pooled AUC is below the average yearly AUC. The model ranks cells within
+  a year better than it ranks the seasons against each other. For instance
+  30.2% of cells burned in 2016, a heavy year, and 8.2% in 2017, a light year.
+  The lower pooled value suggests the model did not separate heavy and light
+  years well. This was not checked directly.
+- The forward chaining estimate (0.66) was higher than the test result (0.60).
+  A likely reason is that forward chaining only looked one year ahead from the
+  training years, while the test looks up to nine years ahead.
+- The model relies mostly on where and what the land is (fire history, land
+  cover, distance to rivers and roads). The seasonal climate predictors add
+  little, as the single-predictor check in Phase 5 suggested.
+
+
+8. CHALLENGES AND FIXES
+-----------------------
+No technical problems. The script ran as written. The result fell short of the
+personal target of 0.65 set at the start of the work, and was reported as it
+came out. No setting was changed in response.
+
+
+9. LIMITATIONS
+--------------
+- The cause of the decline over time is not proven. Candidates are a change in
+  fire patterns, the 2000 settlement layer going out of date, the wetter test
+  period (test rainfall about 10% above the training normal) and noise in the
+  burned area labels. This phase cannot separate them.
+- No confidence interval was calculated for the test AUC. With nine seasons the
+  uncertainty is large, and a difference of 0.03 from Trial 6 should be called
+  modest.
+- Trial 6 and Trial 7 use different labels and different row designs, so the
+  two AUC values are not a strict like-for-like comparison.
+- The test years 2016 to 2024 were already scored in Trial 6, so they are not a
+  blind test in the strict sense.
+- Permutation importance was measured on the test rows. It describes what the
+  model uses on unseen data, but it is not independent of the test score.
+- Shuffled predictors that are correlated with others (distances to rivers and
+  roads, elevation, slope) can share importance in ways this method cannot
+  separate.
+- Top 20% capture for "All" is the mean of the yearly values, not a pooled
+  value.
+
+
+10. WHAT THE DISSERTATION SHOULD NOTE
+-------------------------------------
+- Report both numbers: pooled AUC 0.603 and the mean yearly AUC 0.621, and show
+  the yearly values in the figure. Say what AUC means: the chance that a
+  randomly chosen burned cell scores higher than a randomly chosen unburned
+  cell in the same season.
+- Report top 20% capture (31.9% against 20% by chance), with the yearly range.
+- Report the decline over time as a finding and say that its cause could not be
+  determined here.
+- Report that the model was scored once, that the settings were fixed in Phase
+  6, and that no change followed the test score.
+- Show the importance figure. Explain why the fire history pair was permuted
+  together. State that the seasonal climate predictors contribute little.
+- Report that forward chaining (0.66) overstated test performance (0.60).
+- If the proposal states a target for model performance, report the result
+  against that target and explain the gap.
+- Cite:
+    Hanley, J.A. and McNeil, B.J. (1982). The meaning and use of the area under
+      a receiver operating characteristic (ROC) curve. Radiology, 143, 29 to 36.
+    Breiman, L. (2001). Random forests. Machine Learning, 45, 5 to 32.
+    Altmann, A. et al. (2010). Permutation importance: a corrected feature
+      importance measure. Bioinformatics, 26, 1340 to 1347.
+
+
+11. DECISIONS TO ADD TO THE PROJECT DECISIONS LOG
+-------------------------------------------------
+T7-32. The 6a model was scored once on the test years (2016 to 2024). Pooled
+       AUC 0.6029, mean yearly AUC 0.621, top 20% capture 31.9%.
+T7-33. No change was made to the model, its settings or its predictors after
+       the test score was seen.
+T7-34. Predictor importance: grouped permutation importance on the test rows,
+       with burn_count_3yr and years_since_burn shuffled as one group.
+T7-35. Post-test extension, decided AFTER the test score was known and so not
+       blind: Phase 7b retrains the model each year, using all earlier years
+       including earlier test years, to check whether the decline is caused by
+       the model going out of date. The 6a settings are not tuned again. The
+       headline result stays the static model (T7-32). The extension is
+       reported as a diagnostic next to it.
+T7-36. The susceptibility map and class areas move from 7b to Phase 7c.
+
+
+12. TO CONFIRM BEFORE THE DISSERTATION
+--------------------------------------
+Fill these in from your own records.
+  Both figures read clearly at print size:                  ____________
+  Remaining predictors' AUC drops (importance_grouped.csv): ____________
+  Whether the proposal states a performance target:         ____________
+
+
+13. SUCCESS NOTE
+----------------
+Phase 7a is complete. test_results.csv is frozen and the script will not
+rerun. Do not edit the model or score the test years again.
+
+Next: Phase 7b (rolling retraining extension), then Phase 7c (susceptibility
+map and class areas).

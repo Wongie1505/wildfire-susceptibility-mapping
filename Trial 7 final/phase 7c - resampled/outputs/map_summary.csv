@@ -1,0 +1,7 @@
+measure,value
+seasons averaged,9
+cells,6306
+overall burned share of cell-seasons (%),15.5
+Spearman: mean score against number of seasons burned,0.417
+AUC: mean score against burned at least once,0.712
+lowest and highest mean score,0.056 to 0.768

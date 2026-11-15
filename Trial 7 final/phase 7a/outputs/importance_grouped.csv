@@ -1,0 +1,14 @@
+predictor,auc_drop_mean,auc_drop_sd
+fire_history,0.0554,0.001
+lulc,0.0138,0.0005
+rivers_dist,0.0101,0.0009
+roads_dist,0.0093,0.0012
+settlement_dist,0.0044,0.0003
+slope,0.0039,0.0004
+dem,0.0037,0.0004
+ndmi_anomaly,0.0027,0.0004
+ndvi_peak,0.0012,0.0003
+aspect_east,0.001,0.0002
+aspect_north,0.001,0.0002
+lst_anomaly,0.001,0.0003
+rain_anomaly,-0.0025,0.001

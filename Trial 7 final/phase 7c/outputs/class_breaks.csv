@@ -1,0 +1,5 @@
+from_class,to_class,score_threshold
+Very low,Low,0.2376
+Low,Moderate,0.3621
+Moderate,High,0.469
+High,Very high,0.564

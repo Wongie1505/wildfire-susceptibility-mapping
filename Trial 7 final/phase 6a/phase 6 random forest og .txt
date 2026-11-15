@@ -1,0 +1,265 @@
+PHASE 6: RANDOM FOREST, THREE-RUN CHECK (TRIAL 7)
+=================================================
+
+Status: COMPLETE. Date run: 15 November 2026.
+Runs: 6a (both fire history predictors), 6b (burn count only), 6c (years since
+burn only). Selected for Phase 7: 6a.
+
+Context. Trial 7 is a declared new analysis, started after the Trial 6 test
+results were known (Random Forest test AUC 0.571). In this phase the test
+years (2016 to 2024) were not loaded or used in any way.
+
+
+1. PURPOSE
+----------
+Train and tune the Random Forest on the training years, check how well it
+generalises in space and in time, and settle one open question from Phase 5:
+two fire history predictors (burn_count_3yr and years_since_burn) are almost
+the same information (Spearman rho -0.945). Does the model do better with both,
+or with one of them? The question is answered by three separate, separately
+tuned runs.
+
+  6a   both predictors            14 predictors
+  6b   burn_count_3yr only        13 predictors
+  6c   years_since_burn only      13 predictors
+
+Each run has its own folder and its own copy of modelling_table.csv.
+
+
+2. WHAT WAS DONE
+----------------
+For each run, on the training rows only (88,284 rows, 2002 to 2015):
+- Tried 12 Random Forest settings and scored each by spatial-block
+  cross-validation.
+- Took the best setting and scored it again with spatial-block cross-validation
+  (300 trees) and with forward chaining (train on earlier years, score the
+  next year).
+- Fitted a final model on all training rows and saved it.
+- Compared the three runs under a rule that was declared before the runs.
+
+
+3. HOW IT WAS DONE
+------------------
+Scripts: phase6a_both.py, phase6b_burn_count.py, phase6c_years_since.py. They
+are identical except for the two lines that set PHASE and VARIANT.
+
+Model: scikit-learn RandomForestClassifier with class_weight
+"balanced_subsample", because only about 14% of rows are burned. Random seed
+42. Test rows were removed from memory straight after the table was loaded.
+
+Step 1. Settings search. 12 settings were drawn at random (seed 42) from 54
+  combinations:
+    max_depth          6, 10, 14
+    min_samples_leaf   10, 30, 80
+    max_features       sqrt, 0.3, 0.5
+    max_samples        0.3, 0.5  (share of rows each tree sees)
+  Each setting used 100 trees and was scored by 5-fold spatial-block
+  cross-validation: GroupKFold on the 5 km block_id, so whole blocks are held
+  out. The score is the mean AUC over the 5 folds. The highest mean wins.
+Step 2. Spatial-block cross-validation of the winner, with 300 trees, 5 folds.
+Step 3. Forward chaining of the winner, with 300 trees. For each year t from
+  2009 to 2015, train on all years before t and score year t. The first step
+  trains on 2002 to 2008 (7 years). The validation is not blocked in space: the
+  same cells appear in training and validation, in different years. This copies
+  the real test, which also scores the same area in later years.
+Step 4. Final model: all 88,284 training rows, 300 trees, saved as
+  rf_model.joblib. Impurity importance is saved only as a sanity check. The
+  reported importance will be grouped permutation importance in Phase 7.
+Step 5. Compute control: the script uses half of the available cores (2 cores
+  on the author's computer), saves after every setting and can be stopped and
+  resumed.
+
+The rule for choosing between runs (declared in the Phase 5 log as T7-24, with
+the tie rule stated in conversation before any result was seen):
+  Choose the run with the highest mean spatial-block CV AUC. If the best two
+  differ by less than 0.005, keep 6a (both predictors). Forward chaining is
+  reported but not used to choose.
+
+
+4. WHY EACH CHOICE WAS MADE
+---------------------------
+- Three separate runs, each tuned: a fair comparison needs each variant at its
+  best settings. Comparing at one shared setting could favour one variant by
+  chance.
+- Spatial-block CV as the selection score: it is the headline validation in
+  Trial 6 (D18), it was named in T7-24, and it removes the advantage a model
+  gets from seeing a neighbouring cell.
+- Forward chaining as a reported diagnostic: the Trial 6 failure was in time
+  (spatial CV 0.773, test 0.571), so a temporal check on training years is the
+  nearest thing to the test that does not touch the test years.
+- Class weights, not resampling: no rows are deleted or invented, and the
+  burned share stays at its real level.
+- Random search of 12 settings: a full grid of 54 would take four times
+  longer on a laptop, and the differences between nearby settings are small.
+- Settings chosen on training data only, so the test years cannot influence the
+  model.
+
+
+5. INPUT FILES
+--------------
+Each folder Phase 6a, 6b and 6c contains:
+  data/modelling_table.csv      from Phase 5 (145,038 rows; only the 88,284
+                                training rows are used)
+  scripts/phase6X_*.py
+
+
+6. OUTPUT FILES
+---------------
+In outputs/ of each run:
+  cv_search.csv             all 12 settings with mean and SD of AUC, seconds
+  best_settings.csv         the winning setting
+  validation_spatial.csv    AUC for each of the 5 folds, 300 trees
+  validation_forward.csv    AUC for each year 2009 to 2015
+  importance_impurity.csv   impurity importance (sanity check only)
+  run_settings.csv          phase, variant, predictors, seed, trees
+  rf_model.joblib           the final model
+  validation.png            figure: spatial folds and forward chaining years
+
+
+7. RESULTS
+----------
+Winning setting. All three runs chose the same one:
+  max_depth 14, min_samples_leaf 30, max_features 0.5, max_samples 0.5
+  (setting number 8 of 12 in every run).
+
+Range of mean AUC across the 12 settings:
+  6a  0.720 to 0.758      6b  0.712 to 0.745      6c  0.719 to 0.756
+
+Comparison of the three runs (training years only):
+
+  Run  Predictors         Spatial CV AUC (sd)   Forward chaining AUC
+  6a   both               0.759 (0.0138)        0.6615
+  6b   burn count only    0.746 (0.0169)        0.6327
+  6c   years since only   0.758 (0.0145)        0.6589
+
+Forward chaining by year (burned share of the validation year in brackets):
+
+  Year (burned %)   6a      6b      6c
+  2009 (8.4)        0.604   0.580   0.601
+  2010 (22.0)       0.590   0.581   0.591
+  2011 (10.6)       0.696   0.681   0.697
+  2012 (24.0)       0.641   0.628   0.646
+  2013 (18.8)       0.684   0.650   0.682
+  2014 (11.6)       0.736   0.693   0.729
+  2015 (28.0)       0.681   0.617   0.667
+
+Average of the last five years (2011 to 2015): 6a 0.687, 6b 0.654, 6c 0.684.
+Average of the first two (2009 and 2010):      6a 0.597, 6b 0.580, 6c 0.596.
+
+Outcome of the rule. 6a and 6c differ by 0.0015 in spatial CV AUC, which is
+less than 0.005, so 6a (both predictors) is kept. 6b is 0.013 below 6a in
+spatial CV and 0.029 below it in forward chaining, so burn count alone is
+clearly the weakest. Forward chaining, which was not used to choose, gives the
+same order: 6a, then 6c, then 6b.
+
+Reading the result:
+- Years since burn carries most of the fire history signal. Adding burn count
+  to it gives a very small gain, inside the noise.
+- Spatial CV (0.759) is close to the Trial 6 spatial CV (0.773 plus or minus
+  0.033). The model finds fire-prone ground it has not seen about as well as
+  before.
+- Forward chaining averages 0.66 for 6a. The Trial 6 test AUC was 0.571. This
+  is evidence that the Trial 7 design gives more temporal skill, but it was
+  measured on training years, and it is not the test result.
+- Skill varies from year to year (0.59 to 0.74). The weakest steps are the
+  first two, which have only 7 and 8 training years.
+
+
+8. CHALLENGES AND FIXES
+-----------------------
+1. Compute on a student laptop. Each setting took 15 to 68 seconds (five
+   folds). The script uses half the cores, saves after every setting and can
+   resume, so the computer stays usable and nothing is lost if a run is
+   stopped.
+2. Choice of tuning score. Tuning on spatial CV does not guarantee better
+   temporal skill. It was kept because T7-24 named spatial CV for the
+   comparison. Tuning on forward chaining instead was not tried.
+3. Number of runs. Three tuned runs triple the compute. 12 settings per run
+   kept the total manageable.
+
+
+9. LIMITATIONS
+--------------
+- The best depth (14) and the best max_features (0.5) are the largest values
+  in the search. Larger values were not tried, and a small gain is possible.
+  The fold-to-fold SD of the AUC is about 0.014, so a gain under 0.01 would
+  not be visible.
+- Only 12 of 54 settings were tried in each run.
+- The spatial CV score of the winner is slightly optimistic, because the
+  setting was chosen on the same folds that score it.
+- The difference between 6a and 6c (0.0015) is far smaller than the fold SD,
+  so the two are not distinguishable. The choice of 6a rests on the declared
+  rule, not on a real difference.
+- Forward chaining is not blocked in space. It matches the real test, which
+  scores the same area, but it does not measure performance on unseen areas.
+- The first forward chaining steps train on only 7 or 8 years.
+- AUC measures ranking only. The model output is a relative susceptibility
+  score and not a calibrated probability of fire (D21).
+- The 2016 to 2024 years were scored in Trial 6, so they are not a blind test.
+- Test years are about 10% wetter than the training normal (Phase 4), which
+  may reduce the test score.
+
+
+10. WHAT THE DISSERTATION SHOULD NOTE
+-------------------------------------
+- Present the three-run check as a robustness analysis. Suggested wording:
+  "Two fire history predictors were highly correlated (rho = -0.945). To test
+  whether this affected the model, three Random Forests were tuned and
+  validated separately, with both predictors, with burn count only and with
+  years since burn only. The rule for choosing between them was fixed before
+  the runs. The model with both predictors was selected (spatial CV AUC 0.759,
+  forward chaining AUC 0.66)."
+- Show the comparison table and one validation figure per run.
+- Explain AUC in one sentence: the chance that a randomly chosen burned cell
+  gets a higher score than a randomly chosen unburned cell in the same season.
+- State that the test years were not used for any decision in this phase.
+- State the limitation on the search boundary and on the optimism of the CV
+  score.
+- Report forward chaining as a temporal check on training years, and state
+  clearly that the test result comes in Phase 7.
+- Cite:
+    Breiman, L. (2001). Random forests. Machine Learning, 45, 5 to 32.
+    Pedregosa, F. et al. (2011). Scikit-learn: machine learning in Python.
+      Journal of Machine Learning Research, 12, 2825 to 2830.
+    Roberts, D.R. et al. (2017). Cross-validation strategies for data with
+      temporal, spatial, hierarchical, or phylogenetic structure. Ecography,
+      40, 913 to 929.
+
+
+11. DECISIONS TO ADD TO THE PROJECT DECISIONS LOG
+-------------------------------------------------
+T7-27. Model: Random Forest with class_weight balanced_subsample, seed 42,
+       300 trees for the final models. Settings searched at random (12 of 54)
+       over max_depth, min_samples_leaf, max_features and max_samples, scored
+       by 5-fold spatial-block CV (5 km blocks), tuned separately for 6a, 6b
+       and 6c.
+T7-28. Selection rule, declared before the results: highest mean spatial-block
+       CV AUC, and if the best two are within 0.005, keep "both predictors".
+       Forward chaining is reported but not used to choose.
+T7-29. Outcome: 6a (both fire history predictors) is used from here on.
+       Spatial CV AUC 0.759, forward chaining AUC 0.6615.
+T7-30. Forward chaining runs from 2009 to 2015 on training years only, without
+       spatial blocking, as the test-like diagnostic.
+T7-31. The test years are not used in Phase 6. They are scored once, in Phase
+       7, with the saved 6a model, and no change is made to the model after
+       that score is seen.
+
+
+12. TO CONFIRM BEFORE THE DISSERTATION
+--------------------------------------
+Fill these in from your own records.
+  best_settings.csv in 6a, 6b, 6c are identical:            ____________
+  rf_model.joblib saved in each folder, file size:          ____________
+  validation.png of each run reads clearly:                 ____________
+  Whether to extend the search past depth 14 (yes or no):   ____________
+
+
+13. SUCCESS NOTE
+----------------
+Phase 6 is complete. The 6a model (Phase 6a/outputs/rf_model.joblib) is the
+model for Phase 7. The 6b and 6c models are kept as the sensitivity check and
+are not used again.
+
+Next: Phase 7 (score the 6a model once on the test years, grouped permutation
+importance with the two fire history predictors permuted together, the
+susceptibility map and class areas).

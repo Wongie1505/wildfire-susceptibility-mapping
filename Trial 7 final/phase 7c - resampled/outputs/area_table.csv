@@ -1,0 +1,4 @@
+class,label,cells,area_ha,area_km2,share_pct
+1,Low,1473,36825.0,368.25,23.4
+2,Medium,2156,53900.0,539.0,34.2
+3,High,2677,66925.0,669.25,42.5

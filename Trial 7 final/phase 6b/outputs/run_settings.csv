@@ -1,0 +1,8 @@
+setting,value
+phase,6b
+fire history variant,burn_count
+predictors,"dem, slope, aspect_east, aspect_north, rivers_dist, roads_dist, settlement_dist, rain_anomaly, ndvi_peak, ndmi_anomaly, lst_anomaly, lulc, burn_count_3yr"
+training years,2002 to 2015
+seed,42
+settings tried,12
+"trees (search, final)","100, 300"
