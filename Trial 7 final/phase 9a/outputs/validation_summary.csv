@@ -1,0 +1,7 @@
+measure,value
+fire points used,2973
+non-fire points used,2973
+validation period,2016 to 2024
+non-fire buffer (m),500
+"AUC, fire vs non-fire points (500 m buffer)",0.527
+"AUC, fire vs non-fire points (no buffer)",0.504

@@ -2,6 +2,8 @@ PHASE 7c: SUSCEPTIBILITY MAP, CLASS AREAS AND MAP CHECKS (TRIAL 7)
 ==================================================================
 
 Status: COMPLETE. Date run: 15 November 2026.
+Two runs: a first run with five classes, then a final run with three classes
+and the Trial 5 map design. The final run is the one reported.
 
 Context. Trial 7 is a declared new analysis. No model was run in this phase.
 The map is built from the predictions saved in Phase 7a.
@@ -18,12 +20,16 @@ the map ranks places in the right order.
 ----------------
 - Averaged the 6a model scores of each 500 m cell over the nine test seasons
   (2016 to 2024).
-- Divided the cells into five classes, very low to very high, by natural
-  breaks.
-- Wrote the mean score map and the class map as GeoTIFFs on the Phase 2 grid.
-- Calculated the area of each class in hectares and square kilometres.
+- Divided the cells into classes by natural breaks: five classes in the first
+  run, three (Low, Medium, High) in the final run.
+- Wrote the mean score and class maps as GeoTIFFs on the 500 m model grid.
+- Smoothed the map onto the 30.6 m DEM grid for display and wrote a 30 m score
+  and a 30 m class GeoTIFF.
+- Calculated the area of each class in hectares and square kilometres, on the
+  500 m grid.
 - Checked each class against the fires that actually occurred in 2016 to 2024.
 - Calculated two overall measures of agreement between the map and the burns.
+- Built the final two-panel figure in the design of the Trial 5 map.
 
 
 3. HOW IT WAS DONE
@@ -34,22 +40,28 @@ Step 1. Mean score. The file test_predictions.csv from Phase 7a holds a score
   for every cell and test season. For each cell the nine scores were averaged
   (6,306 cells, 9 seasons). The number of seasons each cell burned (0 to 9) was
   also counted.
-Step 2. Grid. Cell positions come from cell_id (row x width + column) and the
-  Phase 2 stack. The script stops if a scored cell lies outside the forest.
-Step 3. Classes. Fisher-Jenks natural breaks on the 6,306 mean scores, five
-  classes. A cell takes the higher class if its score is equal to or above a
-  threshold. The thresholds are saved in class_breaks.csv.
-Step 4. Rasters. Float32 mean score and int16 class (1 = very low, 5 = very
-  high), nodata -9999, same grid as static_stack.tif.
-Step 5. Areas. One cell is 25 ha (500 m x 500 m, 0.25 km2).
-Step 6. Class check. For each class: the share of cell-seasons that burned (the
-  cells of the class x 9 seasons), the ratio of that share to the overall share,
-  and the share of its cells that burned at least once.
-Step 7. Overall agreement. Spearman rank correlation between mean score and the
-  number of seasons burned, and the AUC of the mean score for "burned at least
-  once in 2016 to 2024".
-Step 8. Two figures at 300 dpi: a map and a bar chart of the burned share by
-  class.
+Step 2. Classes. Fisher-Jenks natural breaks on the 6,306 mean scores. A cell
+  takes the higher class if its score equals or exceeds a threshold. The
+  thresholds are saved in class_breaks.csv.
+Step 3. 500 m rasters (the analysis version): mean score and class, on the
+  Phase 2 grid. All areas and all checks use this version.
+Step 4. Display surface. The 500 m score map was resampled onto the DEM grid
+  (30.6342 m) by bilinear interpolation, so each 30 m pixel blends the nearest
+  500 m cell values. Forest pixels the blend could not reach were filled with
+  the nearest valid value. The surface was clipped to the forest boundary
+  polygon and lightly smoothed (Gaussian, 8 pixels, about 245 m, computed
+  inside the forest only) to remove single-cell speckle. The thresholds found
+  on the 500 m map were then applied to the smooth surface to give the 30 m
+  class map.
+Step 5. Class check on the 500 m map. For each class: the share of cell-seasons
+  that burned, the ratio of that share to the overall share, and the share of
+  cells that burned at least once.
+Step 6. Overall agreement on the 500 m map: Spearman rank correlation between
+  mean score and the number of seasons burned, and the AUC of the mean score
+  for "burned at least once in 2016 to 2024".
+Step 7. Figure. Two panels in the Trial 5 design: continuous scores on the left
+  with a colour bar, three classes on the right with a legend box, north
+  arrows, and a scale bar that is true to the map scale.
 
 
 4. WHY EACH CHOICE WAS MADE
@@ -59,93 +71,134 @@ Step 8. Two figures at 300 dpi: a map and a bar chart of the burned share by
   model, so the map is out of sample for the model itself.
 - Not the 23-season average: 14 of those seasons are training years. The model
   has seen their fires, and the map would partly repeat history.
-- Natural breaks, not equal counts: equal-count classes give every class the
-  same area by construction, which makes the area table empty of information.
-  Natural breaks follow the gaps in the scores.
-- Five classes: a common number in susceptibility mapping, and readable.
-- Class check on burned share: it shows directly whether a higher class burns
-  more often, in a form that is easy to read.
-- Scores are used as relative susceptibility, not as probabilities (D21).
+- Natural breaks, not equal counts or fixed thirds: equal counts give every
+  class the same area, so the area table says nothing. Fixed thirds (0.33 and
+  0.66) would leave the High class almost empty, because the scores sit between
+  about 0.1 and 0.75. Natural breaks follow the gaps in the scores.
+- Three classes in the final run: this follows the Trial 5 map design and
+  reads easily. The first run used five classes and gave High plus Very high
+  as half of the forest.
+- Resampling to 30.6 m for display only: the 500 m cells look blocky in a
+  figure. Interpolation gives smooth shapes and smooth class borders, and the
+  DEM grid makes the surface line up with the other layers. It adds no
+  information and no accuracy.
+- Areas and checks on the 500 m map: the 30 m surface is interpolated, and any
+  area or accuracy figure taken from it would claim detail the model does not
+  have.
+- Colour scale pinned to the classes: the first final-design figure used a
+  fixed 0 to 1 colour bar, and the scores only cover about 0.1 to 0.75, so the
+  continuous panel looked yellow and orange while the class panel showed bright
+  red. The two panels looked like different maps. The continuous colours now
+  pass through the class colours (green, yellow, red) at the middle of each
+  class and change at the class thresholds, which are marked on the colour bar.
+- Colour bar shows the real score range instead of 0 to 1, for the same reason.
+- Colour bar title "Susceptibility score" instead of "Fire probability": the
+  scores come from a Random Forest with class weights and are not calibrated
+  probabilities (D21).
+- The legend slides to the nearest free place so that it never covers the
+  forest.
 
 
 5. INPUT FILES
 --------------
 Folder Phase 7c/data/:
-  static_stack.tif        from Phase 2 (grid and forest mask)
-  test_predictions.csv    from Phase 7a outputs
+  static_stack.tif              from Phase 2 (500 m grid and forest mask)
+  test_predictions.csv          from Phase 7a outputs
+  Viphya_DEM.tif                from Phase 1 (30.6342 m grid, used as template)
+  Chikangawa_forest/            forest boundary shapefile
 
 
 6. OUTPUT FILES
 ---------------
 Folder Phase 7c/outputs/:
-  susceptibility_mean_score.tif   mean score per cell
-  susceptibility_class.tif        class 1 to 5
+  susceptibility_500m_score.tif   mean score, 500 m
+  susceptibility_500m_class.tif   class 1 to 3, 500 m
+  susceptibility_30m_score.tif    display surface, 30.6 m, for figures only
+  susceptibility_30m_class.tif    display classes, 30.6 m, for figures only
   class_breaks.csv                thresholds between classes
-  area_table.csv                  cells, ha, km2, share per class
-  class_validation.csv            burned share per class
+  area_table.csv                  cells, ha, km2, share per class (500 m)
+  class_validation.csv            burned share per class (500 m)
   map_summary.csv                 overall agreement measures
-  susceptibility_map.png          quick map
+  susceptibility_map.png          the two-panel map
   class_validation.png            burned share by class
 
 
 7. RESULTS
 ----------
-Class areas (forest total 6,306 cells, 1,576.5 km2):
+Final run, three classes by natural breaks. Thresholds on the mean score:
+  Low: 0 to 0.34    Medium: 0.34 to 0.49    High: 0.49 to 1
+  (rounded to two decimals as printed in the legend; exact values are in
+  class_breaks.csv)
 
-  Class  Label      Cells   Area (ha)   Area (km2)   Share of forest
-  1      Very low     578    14,450      144.50        9.2%
-  2      Low        1,128    28,200      282.00       17.9%
-  3      Moderate   1,383    34,575      345.75       21.9%
-  4      High       2,178    54,450      544.50       34.5%
-  5      Very high  1,039    25,975      259.75       16.5%
+Class areas, final run (copy from area_table.csv; forest total 6,306 cells,
+1,576.5 km2):
 
-Did each class burn as ranked? (2016 to 2024, 9 seasons)
+  Class    Cells    Area (ha)    Area (km2)    Share of forest
+  Low      ______   ______       ______        ______
+  Medium   ______   ______       ______        ______
+  High     ______   ______       ______        ______
 
-  Class      Burned cell-seasons   Burned share   Ratio to overall   Cells burned
-                                                                      at least once
-  Very low     177                  3.4%           0.22               24.0%
-  Low          854                  8.4%           0.54               49.8%
-  Moderate   1,861                 15.0%           0.97               68.9%
-  High       3,557                 18.1%           1.17               75.5%
-  Very high  2,325                 24.9%           1.61               85.8%
+Did each class burn as ranked? Final run (copy from class_validation.csv):
 
-  Overall burned share of cell-seasons: 15.5%. The total of burned cell-seasons
-  is 8,774, as in Phase 5.
+  Class    Burned cell-seasons   Burned share   Ratio to overall   Cells burned
+                                                                    at least once
+  Low      ______                ______         ______             ______
+  Medium   ______                ______         ______             ______
+  High     ______                ______         ______             ______
 
-Overall agreement (map_summary.csv):
+Overall agreement (the same in both runs, because it uses the mean score and
+not the classes):
+  Overall burned share of cell-seasons: 15.5%
   Spearman, mean score against number of seasons burned:  0.417
   AUC, mean score against burned at least once:           0.712
+  Lowest and highest mean score (map_summary.csv):        ______ to ______
+
+First run, five classes (superseded, kept as a record):
+
+  Class       Cells   Area (km2)   Share   Burned share   Ratio   Burned at
+                                                                   least once
+  Very low      578     144.50      9.2%     3.4%          0.22    24.0%
+  Low         1,128     282.00     17.9%     8.4%          0.54    49.8%
+  Moderate    1,383     345.75     21.9%    15.0%          0.97    68.9%
+  High        2,178     544.50     34.5%    18.1%          1.17    75.5%
+  Very high   1,039     259.75     16.5%    24.9%          1.61    85.8%
+
+  In the five-class run the burned share rose in every step, from 3.4% to
+  24.9% (about 7.3 times). High plus Very high covered 51.0% of the forest and
+  held 67.0% of the burned cell-seasons.
 
 Reading the result:
-- The classes are in the right order. The burned share rises in every step, from
-  3.4% in the very low class to 24.9% in the very high class, which is about
-  7.3 times as often.
-- The high and very high classes cover 51.0% of the forest and hold 67.0% of
-  all burned cell-seasons. The very high class alone covers 16.5% of the forest
-  and holds 26.5% of the burns.
-- The moderate class burned almost exactly at the overall rate (ratio 0.97).
 - Spearman 0.417: cells that the map ranks higher tend to burn in more seasons.
-  The link is moderate, not tight. A value of 0 would mean no link and 1 would
-  mean a perfect match in ranking. A perfect value is not expected, because fire
-  has a strong random element, and most cells have only a few burned seasons,
-  which limits how high the correlation can go.
+  The link is moderate, not tight. 0 would mean no link and 1 a perfect match
+  in ranking. A perfect value is not expected, because fire has a strong random
+  element, and most cells have only a few burned seasons, which limits how high
+  the value can go.
 - AUC 0.712: if one cell that burned at least once and one cell that never
   burned are picked at random, the map gives the burned cell the higher score
   71% of the time. This is higher than the test AUC of 0.603 because it asks an
   easier question: whether a cell burns at all in nine years, not whether it
   burns in one particular season, and averaging nine seasons removes noise. The
-  two AUC values are not comparable and must not be presented as an improvement
-  in model skill.
-- The high class is the largest (34.5% of the forest). Half of the forest is in
-  the high or very high class, so the map separates areas well but is not very
-  selective for targeting action.
+  two AUC values are not comparable and must not be presented as an
+  improvement in model skill.
+- The three-class results above are to be read in the same way: the burned
+  share should rise from Low to High.
 
 
 8. CHALLENGES AND FIXES
 -----------------------
-No technical problems. The script ran as written. The main concern is
-methodological and is described in section 9 (overlap of fire history with the
-check).
+1. The two panels of the first final-design figure looked like different maps.
+   The continuous panel used a fixed 0 to 1 colour bar for scores between about
+   0.1 and 0.75, so most of it looked yellow or orange, while the class panel
+   showed bright red wherever the score passed the High threshold. Fix: the
+   colour scale now covers the real range and is pinned to the class colours
+   and thresholds (section 4).
+2. Layout problems in the first figure: the right-hand title ran into the map,
+   the legend covered part of the forest and its heading overflowed the box, and
+   the rotated colour bar title overlapped the tick labels. Fix: smaller text
+   aligned to the frame edge, a legend that moves to the nearest free place, and
+   the colour bar title moved clear of the ticks.
+3. Visual speckle in the 30 m class map, from small isolated cell differences.
+   Fix: light smoothing of the display surface (section 3, step 4).
 
 
 9. LIMITATIONS
@@ -159,13 +212,16 @@ check).
   this overlap. The size of the effect was not measured. A cleaner check would
   use a map built only from information available before the check window (for
   example the 2016 scores only, checked against the burns of 2017 to 2024).
+- The 30 m map is interpolated and smoothed. Its fine detail is not
+  information from the model. Areas, class shares and checks must come from the
+  500 m version.
 - The map reflects the conditions of 2016 to 2024 only, and the model's skill
   fell over those years (Phase 7a).
 - Scores are relative susceptibility and not probabilities of fire.
 - Class thresholds depend on the data. Another set of seasons would give other
   breaks and other areas.
-- Natural breaks make the high class very large. A stricter scheme would give a
-  more selective map.
+- The colour scale is tied to this map's thresholds, so colours cannot be
+  compared with maps from other models.
 - 500 m cells, and coarse rainfall and temperature inputs, limit how fine the
   map can be.
 - The burned area labels miss some small and under-canopy burns (Phase 3), so
@@ -178,49 +234,59 @@ check).
 -------------------------------------
 - Suggested wording: "The susceptibility map is the mean model score over
   2016 to 2024, a period outside the training years. Cells were grouped into
-  five classes by Fisher-Jenks natural breaks. The burned share rose from 3.4%
-  in the very low class to 24.9% in the very high class."
-- Show the map, the area table and the burned-share chart together.
+  Low, Medium and High classes by Fisher-Jenks natural breaks. For display, the
+  500 m map was resampled to the 30.6 m DEM grid by bilinear interpolation and
+  lightly smoothed; areas and accuracy measures were calculated on the original
+  500 m map."
+- Show the two-panel map, the area table and the burned-share chart together.
 - Explain the two overall measures in plain words, as in section 7, and state
   that the AUC of 0.712 answers a different question from the test AUC of
   0.603.
 - State the overlap limitation of section 9 openly, and the relative nature of
   the scores.
-- State that half of the forest is in the high or very high class.
+- Explain in one sentence why the colour bar is labelled susceptibility score.
+- Mention that a five-class version was also produced and that the three-class
+  version was chosen to match the Trial 5 design.
 - Cite:
     Jenks, G.F. (1967). The data model concept in statistical mapping.
       International Yearbook of Cartography, 7, 186 to 190.
     Fisher, W.D. (1958). On grouping for maximum homogeneity. Journal of the
       American Statistical Association, 53, 789 to 798.
   Check the exact references before use.
-- For the final map, add the forest boundary, a north arrow and a scale bar in
-  QGIS, with the colours used in the script.
 
 
 11. DECISIONS TO ADD TO THE PROJECT DECISIONS LOG
 -------------------------------------------------
 T7-41. The susceptibility map is the mean 6a score over the nine test seasons
        (2016 to 2024), from the Phase 7a predictions. No model was run.
-T7-42. Five classes by Fisher-Jenks natural breaks on the mean score.
-       Thresholds are in class_breaks.csv.
+T7-42. Three classes (Low, Medium, High) by Fisher-Jenks natural breaks on the
+       500 m mean score, matching the Trial 5 design. A five-class version was
+       run first and is kept as a record.
 T7-43. The map is checked against the burned share per class and by Spearman
-       and AUC against the number of seasons burned. The overlap limitation
-       with fire history inputs is reported.
-T7-44. Map scores are relative susceptibility, not probabilities (D21).
+       and AUC against the number of seasons burned, all on the 500 m map. The
+       overlap limitation with fire history inputs is reported.
+T7-44. Map scores are relative susceptibility, not probabilities (D21). The
+       colour bar is titled "Susceptibility score".
+T7-45. Display only: the 500 m map is resampled to the 30.6342 m DEM grid by
+       bilinear interpolation, clipped to the forest boundary and smoothed
+       lightly (Gaussian, 8 pixels). Areas and checks are not taken from it.
+T7-46. The continuous colour scale covers the real score range and is pinned to
+       the class colours and thresholds, so the two panels match.
 
 
 12. TO CONFIRM BEFORE THE DISSERTATION
 --------------------------------------
 Fill these in from your own records.
-  Class thresholds from class_breaks.csv:                    ____________
-  Map figure reads clearly (and final QGIS map made):        ____________
-  Whether to add the 2016-only map check (section 9):        ____________
+  Area table and class validation for the three classes (section 7): ________
+  Exact class thresholds from class_breaks.csv:                      ________
+  Lowest and highest mean score from map_summary.csv:                ________
+  Final map reads clearly at print size:                             ________
+  Whether to add the 2016-only map check (section 9):                ________
 
 
 13. SUCCESS NOTE
 ----------------
-Phase 7c is complete. The two rasters and the tables are the map products of
-Trial 7.
+Phase 7c is complete. The rasters, tables and the two-panel figure are the map
+products of Trial 7.
 
-Next: the final report. The Trial 7 folder should be closed, with all logs and
-the decisions log updated.
+Next: Phase 9 (overlay and figures).

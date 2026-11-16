@@ -31,7 +31,7 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Polygon, Rectangle
 from rasterio import features
 from rasterio.warp import Resampling, reproject
-from scipy.ndimage import distance_transform_edt
+from scipy.ndimage import distance_transform_edt, gaussian_filter
 from sklearn.metrics import roc_auc_score
 
 # ---------- Paths, relative to the Phase 7c folder ----------
@@ -53,7 +53,10 @@ RAMP = ["#239b3f", "#7ad02b", "#e8f72a", "#fdae1a", "#f0451e", "#8c1010"]
 # The model scores are relative susceptibility, not calibrated probabilities.
 # Change this label only if the scores have been calibrated.
 SCORE_LABEL = "Susceptibility score"
-COLOUR_RANGE = (0.0, 1.0)
+
+# Display only: light smoothing of the 30 m surface, in pixels (8 px is about 245 m).
+# It removes single-cell speckle. Set to 0 to switch it off.
+DISPLAY_SMOOTHING = 8
 
 # ---------- 500 m grid and forest mask from the Phase 2 stack ----------
 with rasterio.open(STATIC) as src:
@@ -219,6 +222,12 @@ reproject(
 nearest = distance_transform_edt(np.isnan(fine), return_distances=False, return_indices=True)
 fine = np.where(forest, fine[nearest[0], nearest[1]], np.nan)
 
+# Light smoothing that stays inside the forest (edge pixels are not dragged down)
+if DISPLAY_SMOOTHING > 0:
+    inside_weight = gaussian_filter(forest.astype("float32"), DISPLAY_SMOOTHING)
+    smooth = gaussian_filter(np.where(forest, fine, 0).astype("float32"), DISPLAY_SMOOTHING)
+    fine = np.where(forest, smooth / np.maximum(inside_weight, 1e-6), np.nan)
+
 # Classify the smooth surface with the thresholds found on the 500 m map
 fine_class = np.where(np.isnan(fine), NODATA, np.digitize(fine, breaks) + 1)
 
@@ -256,7 +265,36 @@ classes = np.ma.masked_equal(fine_class[r0:r1, c0:c1], NODATA)
 frame_h_in = (1495 - 202) / 300
 k = 0.95 * frame_h_in / ((map_top - map_bottom) / 1000)
 
-ramp = LinearSegmentedColormap.from_list("susceptibility", RAMP)
+# Colour scale for the continuous map. It is pinned to the classes, so Low areas
+# are green, Medium areas yellow and High areas red in BOTH panels.
+low_value, high_value = np.nanmin(fine), np.nanmax(fine)
+colour_min = np.floor(low_value * 20) / 20
+colour_max = np.ceil(high_value * 20) / 20
+t1, t2 = breaks
+
+
+def hex_to_rgb(code):
+    return np.array([int(code[i:i + 2], 16) for i in (1, 3, 5)])
+
+
+def blend(a, b):
+    mixed = (hex_to_rgb(a) + hex_to_rgb(b)) / 2
+    return "#%02x%02x%02x" % tuple(int(v) for v in mixed)
+
+
+anchors = [
+    (colour_min, "#127a36"),
+    ((colour_min + t1) / 2, CLASS_COLOURS[0]),
+    (t1, blend(CLASS_COLOURS[0], CLASS_COLOURS[1])),
+    ((t1 + t2) / 2, CLASS_COLOURS[1]),
+    (t2, blend(CLASS_COLOURS[1], CLASS_COLOURS[2])),
+    ((t2 + colour_max) / 2, CLASS_COLOURS[2]),
+    (colour_max, "#8c1010"),
+]
+ramp = LinearSegmentedColormap.from_list(
+    "susceptibility",
+    [((value - colour_min) / (colour_max - colour_min), colour) for value, colour in anchors],
+)
 
 fig = plt.figure(figsize=(FIG_W, FIG_H))
 
@@ -280,7 +318,7 @@ def map_frame(x0_px, x1_px, y0_px, y1_px, pad):
 left_ax = map_frame(16, 1143, 202, 1495, pad=0.043)
 right_ax = map_frame(1293, 2272, 204, 1495, pad=0.035)
 
-image = left_ax.imshow(continuous, cmap=ramp, vmin=COLOUR_RANGE[0], vmax=COLOUR_RANGE[1],
+image = left_ax.imshow(continuous, cmap=ramp, vmin=colour_min, vmax=colour_max,
                        extent=image_extent, interpolation="nearest")
 right_ax.imshow(classes, cmap=ListedColormap(CLASS_COLOURS), vmin=1, vmax=N_CLASSES,
                 extent=image_extent, interpolation="nearest")
@@ -297,28 +335,59 @@ fig.text(fx(1222), fy(150), "Random Forest Model", ha="center", va="center", fon
 
 # Colour bar, left panel
 colour_ax = fig.add_axes([fx(717), fy(1470), fx(771) - fx(717), fy(403) - fy(1470)])
-ticks = np.linspace(0, 1, 6)
+ticks = np.arange(np.ceil(colour_min * 10) / 10, colour_max + 1e-9, 0.1)
 bar = fig.colorbar(image, cax=colour_ax, ticks=ticks)
-bar.set_ticklabels([f"{t:g}" for t in ticks])
+bar.set_ticklabels([f"{t:.1f}" for t in ticks])
 bar.outline.set_visible(False)
+
+# Thin lines mark where the class thresholds fall on the colour bar
+for threshold in breaks:
+    bar.ax.axhline(threshold, color="black", linewidth=0.8)
 bar.ax.tick_params(length=6, labelsize=10)
 fig.text(fx(865), fy(300), "Susceptibility:\nContinuous", ha="center", va="center",
          fontsize=12, fontweight="bold")
-fig.text(fx(915), fy(905), SCORE_LABEL, rotation=90, ha="center", va="center",
+fig.text(fx(985), fy(905), SCORE_LABEL, rotation=90, ha="center", va="center",
          fontsize=12, fontweight="bold")
 
 # Text, right panel
-fig.text(fx(2020), fy(365), "Susceptibility:\nClassification\n(Low/Medium/High)",
-         ha="center", va="center", fontsize=12, fontweight="bold")
+fig.text(fx(2255), fy(330), "Susceptibility:\nClassification",
+         ha="right", va="center", fontsize=11, fontweight="bold")
+fig.text(fx(2255), fy(420), "(Low/Medium/High)", ha="right", va="center", fontsize=9, fontweight="bold")
 
-# Legend box, right panel (label and range on two lines so the text fits)
-legend_ax = fig.add_axes([fx(1895), fy(1432), fx(2208) - fx(1895), fy(1090) - fy(1432)])
+# Legend box, right panel. It slides up from the bottom corner until it no
+# longer touches the forest, whatever the shape of the forest is.
+def touches_forest(x0_px, x1_px, y0_px, y1_px, margin=25):
+    """True if a box in layout pixels (right panel) overlaps a forest pixel."""
+    xlim, ylim = right_ax.get_xlim(), right_ax.get_ylim()
+
+    def to_x(px):
+        return xlim[0] + (px - 1293) / (2272 - 1293) * (xlim[1] - xlim[0])
+
+    def to_y(py):
+        return ylim[1] - (py - 204) / (1495 - 204) * (ylim[1] - ylim[0])
+
+    col_a = int((to_x(x0_px - margin) - fine_transform.c) / fine_transform.a)
+    col_b = int((to_x(x1_px + margin) - fine_transform.c) / fine_transform.a)
+    row_a = int((fine_transform.f - to_y(y0_px - margin)) / abs(fine_transform.e))
+    row_b = int((fine_transform.f - to_y(y1_px + margin)) / abs(fine_transform.e))
+
+    block = forest[max(row_a, 0):max(row_b, 0) + 1, max(col_a, 0):max(col_b, 0) + 1]
+    return block.any()
+
+
+LEG_X0, LEG_X1, LEG_H = 1845, 2250, 300
+leg_bottom = 1465
+
+while leg_bottom - LEG_H > 520 and touches_forest(LEG_X0, LEG_X1, leg_bottom - LEG_H, leg_bottom):
+    leg_bottom -= 10
+
+legend_ax = fig.add_axes([fx(LEG_X0), fy(leg_bottom), fx(LEG_X1) - fx(LEG_X0), fy(leg_bottom - LEG_H) - fy(leg_bottom)])
 legend_ax.set_xlim(0, 1)
 legend_ax.set_ylim(0, 1)
 legend_ax.axis("off")
 legend_ax.add_patch(Rectangle((0, 0), 1, 1, fill=False, linewidth=1.5, clip_on=False))
-legend_ax.text(0.07, 0.92, "Random Forest Model", fontsize=7.5, va="center")
-legend_ax.text(0.07, 0.82, "Susceptibility Ranges", fontsize=7, va="center", color="#555555")
+legend_ax.text(0.08, 0.92, "Random Forest Model", fontsize=7, va="center")
+legend_ax.text(0.08, 0.82, "Susceptibility Ranges", fontsize=7, va="center", color="#555555")
 
 edges = [0.0] + [round(b, 2) for b in breaks] + [1.0]
 

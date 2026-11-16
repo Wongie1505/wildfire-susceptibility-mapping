@@ -1,0 +1,7 @@
+group,class,label,points,share_pct,forest_area_share_pct
+fire = 1,1,Low,642,21.6,23.4
+fire = 1,2,Medium,1107,37.2,34.2
+fire = 1,3,High,1224,41.2,42.5
+fire = 0,1,Low,810,27.2,23.4
+fire = 0,2,Medium,968,32.6,34.2
+fire = 0,3,High,1195,40.2,42.5

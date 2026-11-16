@@ -1,0 +1,232 @@
+PHASE 9a: VALIDATION AGAINST RAW FIRMS FIRE POINTS (TRIAL 7)
+============================================================
+
+Status: COMPLETE (numbers from the pie charts and the validation tables are
+still to be filled in, see sections 7 and 12). Date run: 16 November 2026.
+
+Context. Trial 7 is a declared new analysis. No model was run in this phase.
+The map under test is the Phase 7c susceptibility map: the mean 6a model score
+over 2016 to 2024, in three classes (Low 0 to 0.34, Medium 0.34 to 0.49,
+High 0.49 to 1).
+
+
+1. PURPOSE
+----------
+Check the map against fire observations that were not used to build it, in the
+same design as the Trial 5 validation: where do fire points fall on the map,
+and where do non-fire points fall? A useful map should put most fire points in
+the High class and most non-fire points in the Low class.
+
+
+2. WHAT WAS DONE
+----------------
+- Took the raw MODIS fire detections with confidence 75 or more (not clustered
+  into events) for the validation period 2016 to 2024, and labelled them
+  fire = 1.
+- Drew random non-fire points inside the forest, the same number as the fire
+  points, labelled fire = 0.
+- Found the map class under every point.
+- Saved all points in one CSV with a fire column.
+- Drew two pie charts, one for each group, showing how its points divide
+  between the Low, Medium and High classes.
+- Drew two overlay maps with the fire hotspot density.
+
+
+3. HOW IT WAS DONE
+------------------
+Script: phase9a_validation.py (Spyder).
+
+Step 1. Fire points. File fire_detections_filtered.csv from the Trial 6 fire
+  events phase: every raw detection from July to December, confidence 75 or
+  more, inside the Chikangawa boundary. Years 2016 to 2024 were kept: 2,981
+  detections. Their coordinates were converted to EPSG:32736. 2,973 fall on a
+  map cell and were kept. The other 8 lie in border cells that are outside the
+  500 m forest mask.
+Step 2. Non-fire points. Random points inside the forest boundary, seed 42,
+  kept only if they were at least 500 m from every fire point and fell on a map
+  cell. 2,973 points were drawn, equal to the number of fire points.
+Step 3. A second set of 2,973 non-fire points was drawn with no distance rule.
+  It is used only for one AUC value (step 6).
+Step 4. Class lookup. Each point takes the class and the mean score of the
+  500 m cell it falls in.
+Step 5. Outputs. validation_points.csv (point id, fire = 1 or 0, x, y, lon,
+  lat, date, mean score, class), class_distribution.csv (counts and share per
+  class for each group, with the share of forest area per class), and the two
+  pie charts RF_Fire_1_Distribution.png and RF_Fire_0_Distribution.png.
+Step 6. AUC of the mean score, fire points against non-fire points, once with
+  the 500 m buffer and once without it (validation_summary.csv).
+Step 7. Overlay maps. A Gaussian kernel density of the fire points
+  (bandwidth factor 0.1, on a 500 m grid, scaled from 0 to 1 and clipped to the
+  forest). A hotspot is a density above 0.6. Option A shows the class map next
+  to the density map with the points. Option B shows the class map with hatched
+  hotspot outlines. The class maps are drawn on the 30.6 m display surface from
+  Phase 7c, with the Trial 5 layout, scale bar and data box.
+
+
+4. WHY EACH CHOICE WAS MADE
+---------------------------
+- Raw fire points and not events: this repeats the Trial 5 design, and each
+  point is a satellite detection that needs no clustering rule to defend.
+- Confidence 75 or more: the same filter as in Trial 6, to drop weak
+  detections.
+- Validation period 2016 to 2024: the map is the mean of the scores of those
+  years, so the fire points of the same years are the natural comparison.
+- Non-fire points with a buffer: this is the Trial 5 and Trial 6 method and
+  allows comparison. The buffer is also known to flatter a map (section 9), so
+  a second set without a buffer is used to measure the effect.
+- Class lookup on the 500 m map: this is the analysis grid. The 30 m surface is
+  for display only (Phase 7c).
+- Same colours as the Phase 7c map, so that all Trial 7 figures use one palette.
+- FIRMS was not used as a label or a predictor, so this check does not reuse the
+  training labels. FIRMS and the burned area product both come from MODIS, so
+  the check is independent of the labels but not of the sensor.
+
+
+5. INPUT FILES
+--------------
+Folder Phase 9a/data/:
+  fire_detections_filtered.csv      9,238 detections 2002 to 2024 (Trial 6)
+  susceptibility_500m_class.tif     Phase 7c
+  susceptibility_500m_score.tif     Phase 7c
+  susceptibility_30m_class.tif      Phase 7c (display)
+  class_breaks.csv                  Phase 7c
+  Chikangawa_forest/                forest boundary shapefile
+
+
+6. OUTPUT FILES
+---------------
+Folder Phase 9a/outputs/:
+  validation_points.csv             all points with fire = 1 or 0 and class
+  class_distribution.csv            counts and shares per class and group
+  validation_summary.csv            point counts and the two AUC values
+  RF_Fire_1_Distribution.png        pie: fire points
+  RF_Fire_0_Distribution.png        pie: non-fire points
+  Validation_A_SideBySide.png/pdf   class map next to fire density
+  Validation_B_Overlay.png/pdf      class map with hotspot outlines
+
+
+7. RESULTS
+----------
+Points: 2,973 fire points and 2,973 non-fire points.
+
+Class distribution (copy from class_distribution.csv or the pie charts):
+
+  Class     Fire points (fire = 1)   Non-fire points (fire = 0)   Forest area
+            n         share          n         share              share
+  Low       ______    ______         ______    ______             ______
+  Medium    ______    ______         ______    ______             ______
+  High      ______    ______         ______    ______             ______
+
+AUC of the mean score, fire against non-fire points (validation_summary.csv):
+  With the 500 m buffer:     ______
+  Without a buffer:          ______
+
+What the overlay maps show (visual reading, to be confirmed with the numbers
+above):
+- The fire density has one dominant hotspot, in the narrow middle of the forest
+  on the western side. On the susceptibility map this hotspot lies over Medium
+  and Low land, with only its upper edge over High.
+- Two small hotspots at the same narrow part, and one in the south west, lie
+  over mixed Medium and High land.
+- The large High areas in the north and the south of the forest contain
+  scattered fire points but no strong hotspot. A hotspot is defined relative to
+  the highest density in the forest, so a dominant hotspot lowers the density
+  of everything else. The side by side map shows moderate fire density in the
+  north and the south east.
+- Taken together, the overlay shows partial agreement: the map covers part of
+  the fire activity, and it does not capture the strongest hotspot of
+  2016 to 2024.
+
+Reading the result: [to be completed after the pie numbers are filled in.
+State whether most fire points are in High and most non-fire points in Low, and
+how much the AUC falls when the buffer is removed.]
+
+
+8. CHALLENGES AND FIXES
+-----------------------
+No technical problems with the script. The layout of the pie chart labels was
+corrected before the run, so that labels do not overlap the slices.
+
+
+9. LIMITATIONS
+--------------
+- The 500 m buffer favours the map. Non-fire points kept away from fire points
+  tend to fall in cells that never burned, and those are the cells that the
+  model rates low (the model uses fire history). This is the same artifact that
+  made the Trial 6 buffer test look better as the buffer grew. The unbuffered
+  AUC is the fairer number.
+- A MODIS fire point comes from a pixel of about 1 km, so its position has an
+  error of the order of one or two map cells.
+- FIRMS and the burned area product both come from MODIS and share limits such
+  as cloud, small fires and overpass times.
+- The map is the mean of the 2016 to 2024 scores. Its fire history inputs use
+  earlier burns, including burns in the same period, so some overlap with the
+  fire points remains (Phase 7c). A check with a map built only from 2016 scores
+  was not done.
+- The hotspot threshold of 0.6 is relative to the maximum density, and one
+  dominant hotspot makes other areas look weak. The kernel bandwidth was kept
+  from Trial 5.
+- 8 fire points fell outside the 500 m mask and were dropped.
+- The Trial 5 pie charts and the Trial 7 pie charts are not comparable. They
+  come from different models, different periods and different point designs.
+- The class thresholds come from natural breaks on the 500 m mean score and
+  depend on the data.
+- The class maps in the figures are the smoothed 30 m display surface. The class
+  counts and shares come from the 500 m map. Small differences at class borders
+  are expected.
+
+
+10. WHAT THE DISSERTATION SHOULD NOTE
+-------------------------------------
+- Show the two pie charts side by side and give the shares in the text. State
+  how the result differs from a random placement: the area shares of the three
+  classes are the reference.
+- Show Validation_B_Overlay as the main overlay and Validation_A_SideBySide as
+  the supporting figure.
+- Report the AUC with and without the buffer, and explain in one sentence why
+  the buffer flatters the result.
+- Report the visual finding honestly: the strongest hotspot is only partly
+  covered by the High class. Do not explain it with a cause that was not
+  tested. Possible causes to list as open: ignition by people (not described by
+  the predictors), land cover and management at that location, and noise in the
+  data.
+- State that FIRMS was not a training input, and that it comes from the same
+  satellite family as the labels.
+- State the period used and that confidence 75 or more detections were used,
+  without clustering.
+- Cite: Giglio, L., Schroeder, W. and Justice, C.O. (2016). The collection 6
+  MODIS active fire detection algorithm and fire products. Remote Sensing of
+  Environment, 178, 31 to 41. Check the exact reference before use.
+
+
+11. DECISIONS TO ADD TO THE PROJECT DECISIONS LOG
+-------------------------------------------------
+T7-47. Validation uses raw MODIS fire detections (confidence 75 or more, July to
+       December, not clustered) for 2016 to 2024, labelled fire = 1.
+T7-48. Non-fire points: random inside the forest, same number as the fire
+       points, at least 500 m from any fire point, seed 42, labelled fire = 0.
+       A second sample without a buffer is used for one AUC value.
+T7-49. Class lookup is on the 500 m map. The maps in the figures use the 30 m
+       display surface.
+T7-50. Hotspot: kernel density above 0.6 of the maximum, bandwidth factor 0.1
+       (the Trial 5 setting).
+T7-51. The check with a map built from the 2016 scores only is not part of
+       Trial 7 unless added later.
+
+
+12. TO CONFIRM BEFORE THE DISSERTATION
+--------------------------------------
+Fill these in from your own records.
+  Class distribution table in section 7 (class_distribution.csv):  ________
+  AUC with and without the buffer (validation_summary.csv):        ________
+  Both pie charts read clearly:                                    ________
+  Reading of the result, last paragraph of section 7:              ________
+  Whether to add the 2016-only map check:                          ________
+
+
+13. SUCCESS NOTE
+----------------
+Phase 9a is complete once the blanks above are filled. validation_points.csv
+and the figures are the validation products of Trial 7.
+
+Next: Phase 9b (annual and monthly counts) and the closing phase.
