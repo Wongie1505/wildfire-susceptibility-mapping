@@ -1,0 +1,8 @@
+measure,value
+Brier score of the model,0.2279
+Brier score of a constant at the training burned share,0.1308
+"Brier skill score (1 is perfect, 0 is no better than the constant)",-0.7423
+Calibration slope (1 is ideal),0.458
+Calibration intercept (0 is ideal),-1.6176
+Mean score on test rows,0.4414
+Observed burned share on test rows,0.1546
