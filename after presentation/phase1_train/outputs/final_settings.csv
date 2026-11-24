@@ -1,0 +1,4 @@
+model,settings,cv_auc_mean,selected
+RandomForest,"{'n_estimators': 300, 'min_samples_leaf': 30, 'max_samples': 0.5, 'max_features': 0.5, 'max_depth': 14}",0.759,False
+XGBoost,"{'max_depth': 8, 'learning_rate': 0.05}",0.7766,False
+LightGBM,"{'num_leaves': 63, 'learning_rate': 0.05}",0.7768,True

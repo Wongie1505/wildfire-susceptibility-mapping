@@ -1,0 +1,53 @@
+LOG: phase3_labels
+Date | Action | Inputs | Result | Check | Decision
+
+2026-11-24 | PHASE 3 RULES FIXED (before any scoring)
+
+Decisions, recorded as agreed:
+1. Headline AUC is calculated on the continuous burned_fraction (0 to 1). No threshold is applied to the headline AUC.
+2. Binary label for kappa and the confusion matrix: s2_burned = burned_fraction >= 0.10. This cut-off is set for label noise, not for results. It is not chosen to improve any score.
+3. Sensitivity labels, pre-declared and reported in Phase 4 whatever they show: >= 0.05 and >= 0.25.
+4. Coverage rule: rows with valid_fraction < 0.5 are kept in the file but flagged usable = False, and are excluded from scoring.
+
+Rationale for the record: the headline metric is threshold-free, so the decision about the cut-off does not affect the headline AUC. The rules were fixed before the Phase 3 build and before any Phase 4 scoring. They will not be changed after Phase 4 results are seen. Any later change must be logged as a deviation with its reason.
+
+Scope: Sentinel-2 test years 2018 to 2024 (decision in Phase 2, option 3). 2016 and 2017 are not built.
+
+Inputs: data/s2/S2_burn_2018.tif to S2_burn_2024.tif (Phase 2 exports); data/modelling_table.csv (Trial 7 modelling table, keys x, y, year, cell_id, split).
+
+Status: rules recorded. Build script written (scripts/build_s2_labels.py). Not yet run.
+
+2026-11-24 | PHASE 3 RUN 1 RESULTS (build_s2_labels.py, first version)
+Year | rows | matched | usable | burned_share (run 1)
+2018 | 6306 | 6306 | 6306 | 0.095
+2019 | 6306 | 6181 | 5627 | 0.378
+2020 | 6306 | 5737 | 4933 | 0.230
+2021 | 6306 | 6289 | 6197 | 0.068
+2022 | 6306 | 6306 | 6306 | 0.003
+2023 | 6306 | 6306 | 6306 | 0.117
+2024 | 6306 | 6306 | 6306 | 0.351
+
+Checks:
+- Matching: 'matched' counts cells with a non-empty burned_fraction. Unmatched cells (125 in 2019, 569 in 2020, 17 in 2021) fall outside the Sentinel-2 raster values (edge of the forest clip, or no data). They are not usable, so no label is assigned. PASS once the bug below is fixed.
+- Usable: 2018 and 2022 to 2024 are fully usable. 2019 to 2021 lose 679, 1,373 and 109 rows to low coverage or no data.
+- 2022 burned share (0.003) matches the Phase 2 diagnostic (0.13% above dNBR 0.27 and 1.9% above 0.10). Consistent.
+
+BUG FOUND in run 1: the labels were set to 0 where burned_fraction was missing or unusable, because NaN >= 0.10 evaluates to False. This counts no-data cells as unburned and biases the labels (most strongly in 2019 and 2020). Also the burned_share column averaged over all rows, including unusable ones.
+FIX (run 2): labels are NaN for unusable or unmatched rows. burned_share is now calculated on usable rows only, and the column is renamed burned_share_usable.
+The fix changes no rule. It only stops missing data from being counted as zero.
+
+STATUS: OPEN until run 2 is completed. Run 1 labels must not be used. Re-run build_s2_labels.py and send the summary; I'll record run 2 here before Phase 4 starts.
+
+2026-11-24 | PHASE 3 CLOSED (run 2 results)
+Year | rows | matched | usable | burned_share_usable
+2018 | 6306 | 6306 | 6306 | 0.0948
+2019 | 6306 | 6181 | 5627 | 0.3645
+2020 | 6306 | 5737 | 4933 | 0.2366
+2021 | 6306 | 6289 | 6197 | 0.0686
+2022 | 6306 | 6306 | 6306 | 0.0030
+2023 | 6306 | 6306 | 6306 | 0.1169
+2024 | 6306 | 6306 | 6306 | 0.3513
+
+Checks: run 2 fixes the run 1 bug (unusable or unmatched cells had been set to 0). Labels for unusable cells are now NaN. 2022 (0.0030) matches the Phase 2 diagnostic (0.13% of valid pixels above dNBR 0.27). Unusable rows: 0 in 2018, 2022, 2023, 2024; 679 in 2019; 1,373 in 2020; 109 in 2021.
+Output: outputs/s2_labels.csv and outputs/s2_labels_summary.csv.
+Status: CLOSED.

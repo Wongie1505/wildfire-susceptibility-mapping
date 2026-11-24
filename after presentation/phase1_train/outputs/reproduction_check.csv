@@ -1,0 +1,2 @@
+check,max_abs_diff,mean_abs_diff,passed (max diff < 0.001)
+"RF refit vs Trial 7 saved model, training rows",0.0,0.0,True

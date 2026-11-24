@@ -1,0 +1,9 @@
+2016: PASS CRS/cell size (EPSG:32736, 500.0 m); PASS grid alignment; coverage 0.127; burned share 0.1066
+2017: PASS CRS/cell size (EPSG:32736, 500.0 m); PASS grid alignment; coverage 0.044; burned share 0.0162
+2018: PASS CRS/cell size (EPSG:32736, 500.0 m); PASS grid alignment; coverage 1.0; burned share 0.0305
+2019: PASS CRS/cell size (EPSG:32736, 500.0 m); PASS grid alignment; coverage 0.889; burned share 0.1394
+2020: PASS CRS/cell size (EPSG:32736, 500.0 m); PASS grid alignment; coverage 0.784; burned share 0.0873
+2021: PASS CRS/cell size (EPSG:32736, 500.0 m); PASS grid alignment; coverage 0.98; burned share 0.0252
+2022: PASS CRS/cell size (EPSG:32736, 500.0 m); PASS grid alignment; coverage 1.0; burned share 0.0012
+2023: PASS CRS/cell size (EPSG:32736, 500.0 m); PASS grid alignment; coverage 1.0; burned share 0.0416
+2024: PASS CRS/cell size (EPSG:32736, 500.0 m); PASS grid alignment; coverage 1.0; burned share 0.1289

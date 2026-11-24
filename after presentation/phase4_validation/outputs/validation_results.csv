@@ -1,0 +1,25 @@
+model,reference,years,metric,value,ci_low,ci_high
+RandomForest,MCD64A1,2016-2024,AUC,0.6029,0.5743,0.6328
+RandomForest,Sentinel-2,2018-2024,soft AUC (headline),0.455,0.4317,0.4819
+RandomForest,Sentinel-2,2018-2024,top-20% burned capture %,16.7,,
+RandomForest,Sentinel-2,2018-2024,"kappa, top-20% flag vs label primary_0.10",-0.0321,,
+RandomForest,Sentinel-2,2018-2024,"kappa, top-20% flag vs label low_0.05",-0.0349,,
+RandomForest,Sentinel-2,2018-2024,"kappa, top-20% flag vs label high_0.25",-0.0235,,
+XGBoost_depth8,MCD64A1,2016-2024,AUC,0.5886,0.5579,0.6217
+XGBoost_depth8,Sentinel-2,2018-2024,soft AUC (headline),0.4664,0.4382,0.4959
+XGBoost_depth8,Sentinel-2,2018-2024,top-20% burned capture %,17.39,,
+XGBoost_depth8,Sentinel-2,2018-2024,"kappa, top-20% flag vs label primary_0.10",-0.0318,,
+XGBoost_depth8,Sentinel-2,2018-2024,"kappa, top-20% flag vs label low_0.05",-0.0327,,
+XGBoost_depth8,Sentinel-2,2018-2024,"kappa, top-20% flag vs label high_0.25",-0.0183,,
+LightGBM_1SE_31leaves,MCD64A1,2016-2024,AUC,0.5965,0.5621,0.6319
+LightGBM_1SE_31leaves,Sentinel-2,2018-2024,soft AUC (headline),0.4752,0.4476,0.5054
+LightGBM_1SE_31leaves,Sentinel-2,2018-2024,top-20% burned capture %,18.1,,
+LightGBM_1SE_31leaves,Sentinel-2,2018-2024,"kappa, top-20% flag vs label primary_0.10",-0.0243,,
+LightGBM_1SE_31leaves,Sentinel-2,2018-2024,"kappa, top-20% flag vs label low_0.05",-0.0245,,
+LightGBM_1SE_31leaves,Sentinel-2,2018-2024,"kappa, top-20% flag vs label high_0.25",-0.0137,,
+LightGBM_min_error_63leaves,MCD64A1,2016-2024,AUC,0.5991,0.5662,0.6334
+LightGBM_min_error_63leaves,Sentinel-2,2018-2024,soft AUC (headline),0.4601,0.4327,0.4894
+LightGBM_min_error_63leaves,Sentinel-2,2018-2024,top-20% burned capture %,16.93,,
+LightGBM_min_error_63leaves,Sentinel-2,2018-2024,"kappa, top-20% flag vs label primary_0.10",-0.0372,,
+LightGBM_min_error_63leaves,Sentinel-2,2018-2024,"kappa, top-20% flag vs label low_0.05",-0.0388,,
+LightGBM_min_error_63leaves,Sentinel-2,2018-2024,"kappa, top-20% flag vs label high_0.25",-0.0219,,

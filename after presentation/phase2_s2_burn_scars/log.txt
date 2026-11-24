@@ -1,0 +1,101 @@
+LOG: phase2_s2_burn_scars
+
+Date | Action | Inputs | Result | Check | Decision
+
+2026-11-24 | Phase 2 run attempt 1 | scripts/s2_burn_export.js (version 1, region from DEM rectangle) | ERROR: Image.reduceResolution: The input to reduceResolution does not have a valid default projection. Use setDefaultProjection() first. (Error code: 3) | No exports created | Fix: set the default projection (EPSG:32736, 20 m) on each composite and on each input to reduceResolution. Region changed to the Chikangawa boundary asset projects/rainfallpatterns/assets/Chikangawa_forest, using BOUNDARY.geometry() for clip and export. The 500 m output grid and the burned-cell rule are unchanged. | Status: script updated, awaiting run.
+
+2026-11-24 | Phase 2 export downloaded | GEE Drive folder AfterPresentation_S2 (nine tasks, S2_burn_2016 to S2_burn_2024) | Download reported successful. Files to be placed in data/. | Not yet checked. Next: check_s2_exports.py (bands, CRS, 500 m grid alignment, coverage, burned share, descriptive overlap with MCD64A1). | Status: awaiting upload of the nine GeoTIFFs for checking.
+
+2026-11-24 | Phase 2 check run (check_s2_exports.py) | nine GeoTIFFs S2_burn_2016 to S2_burn_2024 in data/ | Structure: all nine files PASS (2 bands, EPSG:32736, 500 m cells, grid aligned to multiples of 500 m).
+
+Coverage (mean valid_fraction): 2016 0.007, 2017 0.044, 2018 1.000, 2019 0.889, 2020 0.784, 2021 0.980, 2022 1.000, 2023 1.000, 2024 1.000.
+
+Burned share of valid cells: 2016 0.216, 2017 0.016, 2018 0.031, 2019 0.139, 2020 0.087, 2021 0.025, 2022 0.001, 2023 0.042, 2024 0.129. Cells with burned fraction >= 0.10: 37, 13, 609, 2437, 1508, 445, 19, 767, 2301.
+
+Descriptive overlap with MCD64A1 (cells in both): agreement 52.3% (2016, 44 cells), 79.9% (2017, 288 cells), 81.6%, 57.1%, 70.5%, 75.2%, 84.5%, 73.0%, 60.5% (2018 to 2024, 6,306 cells each). MCD64A1 burned shares for the same years: 0.273, 0.208, 0.115, 0.112, 0.095, 0.189, 0.152, 0.187, 0.158.
+
+INTERPRETATION (not a validation):
+(a) 2016 and 2017 FAIL the coverage check. Coverage is under 5%, so the scars cannot represent those seasons. Likely cause: early Sentinel-2 availability over Malawi for the June and January windows.
+(b) Raw agreement is not evidence. Most cells are unburned, so a high agreement can come from predicting "not burned". The overlap needs a base-rate-adjusted measure (Cohen's kappa, or the AUC of the continuous fraction) before any statement is made.
+(c) 2022 is a warning sign. Coverage is 1.000, yet the burned share is 0.001 and only 19 cells pass 0.10, against 0.152 in MCD64A1. Either 2022 had very little burning or the dNBR threshold or composites are wrong for that year. This needs a check (for example, look at the dNBR histogram and a known fire year) before 2022 is used.
+(d) The 0.27 threshold was fixed before scoring. Do not tune it to match MCD64A1 or to improve agreement. A pre-declared sensitivity set (0.20 and 0.35) may be reported, but the primary result stays at 0.27.
+
+STATUS: PARTIAL PASS. Structure passed for all nine seasons. Coverage failed for 2016 and 2017. 2022 needs a check. Phase 2 is NOT closed.
+
+DECISIONS NEEDED before Phase 3:
+1. Test years. Option A: drop 2016 and 2017 from the independent test, leaving 2018 to 2024. This changes the test window, so the dissertation must say so. Option B: keep 2016 to 2024 and report 2016 and 2017 as not covered by Sentinel-2. Option C: change the composite windows for 2016 and 2017 (this is a method change, so it must be justified and logged before it is run).
+2. 2022 check: run the dNBR diagnostic for 2022 (histogram and visual check against the fire season) before deciding whether the year is usable.
+3. Confirm the 0.27 primary threshold, with 0.20 and 0.35 as the pre-declared sensitivity set.
+
+2026-11-24 | Phase 2 scene-count check (user, GEE console) | Scenes per window, primary windows | 2016: pre (June) 2, post (Jan to Mar) 1. 2017: pre 10, post 3. 2018: pre 11, post 108. 2022: pre 32, post 104.
+
+RESULT: The 2016 and 2017 coverage failure is a scene-count problem. The primary windows have too few scenes to build a median composite. The 2022 scene counts are high, so its low burned share (0.001) is NOT caused by missing data. Re-downloading 2022 with the same code would return the same result, so 2022 is not re-exported until the dNBR diagnostic is read.
+
+RULE FIXED BEFORE THE RE-RUN (applies to all seasons):
+- Primary window used if enough scenes: pre 1 June to 30 June; post 1 January to 31 March of Y+1.
+- MIN_PRE = 5 scenes, MIN_POST = 10 scenes. Below these, the fallback window applies: pre 1 May to 30 June; post 1 January to 30 April of Y+1.
+- Thresholds were set now, from the counts above, before any new export. They are not tuned on burned area or agreement.
+- Under this rule 2016 falls back on both windows; 2017 falls back on the post window only. 2018 and later keep the primary windows, so their exports are unchanged.
+- dNBR cut-off stays at 0.27. PRE_NBR_MIN stays at 0.10.
+
+ACTION: Re-export 2016 and 2017 only (YEARS_TO_EXPORT = [2016, 2017]). Console prints the window used and the dNBR diagnostic for every season (2016 to 2024), so the 2022 diagnostic is produced without exporting.
+
+2022: read the console diagnostic line for 2022 (share of valid pixels above dNBR 0.10 and 0.27) and paste it here. If the share above 0.27 is close to the reported burned share, the low value is a real low-burn year or a threshold issue, and the decision is about the threshold, not the download.
+
+STATUS: Phase 2 remains open. 2016 and 2017 are being re-exported under the fallback rule. 2018 to 2024 are unchanged and passed the structure check.
+
+==================================================================
+PHASE 2 FINAL LOG: Sentinel-2 burn scars (closed 2026-11-24)
+==================================================================
+
+1. PURPOSE
+Build an independent burn reference from Sentinel-2 (a different sensor from MODIS) for the 2016 to 2024 test years, on the 500 m grid used by the modelling table.
+
+2. METHOD (scripts/s2_burn_export.js)
+- Source: COPERNICUS/S2_SR_HARMONIZED, cloud-masked with QA60 (bits 10 and 11).
+- Primary windows: pre = 1 to 30 June of Y; post = 1 January to 31 March of Y+1.
+- Fallback windows, used only where the primary window is short: pre = 1 May to 30 June; post = 1 January to 30 April of Y+1. Thresholds: MIN_PRE = 5 scenes, MIN_POST = 10 scenes. Fixed from the scene counts before the re-run, not from burned area or agreement.
+- NBR = (B8 - B12) / (B8 + B12); dNBR = NBR(pre) - NBR(post).
+- Burned pixel: dNBR > 0.27 and NBR(pre) > 0.10. Primary cut-off fixed before scoring.
+- Exports per season: burned_fraction and valid_fraction on the 500 m grid, EPSG:32736, origin at multiples of 500 m.
+- Output: nine GeoTIFFs in data/ (S2_burn_2016 to S2_burn_2024).
+
+3. RESULTS BY SEASON (scripts/check_s2_exports.py, final run)
+
+Year | Window used          | Coverage | Burned share | Cells >= 0.10 | Agreement with MCD64A1 | MCD64A1 share
+2016 | fallback (pre and post) | 0.127 | 0.107 | 251 | 59.2% (1,002 cells) | 0.435
+2017 | fallback (post)         | 0.044 | 0.016 | 13  | 79.9% (288 cells)   | 0.208
+2018 | primary                 | 1.000 | 0.031 | 609 | 81.6% (6,306 cells) | 0.115
+2019 | primary                 | 0.889 | 0.139 | 2437 | 57.1% (6,181 cells) | 0.112
+2020 | primary                 | 0.784 | 0.087 | 1508 | 70.5% (5,737 cells) | 0.095
+2021 | primary                 | 0.980 | 0.025 | 445 | 75.2% (6,289 cells) | 0.189
+2022 | primary                 | 1.000 | 0.001 | 19  | 84.5% (6,306 cells) | 0.152
+2023 | primary                 | 1.000 | 0.042 | 767 | 73.0% (6,306 cells) | 0.187
+2024 | primary                 | 1.000 | 0.129 | 2301 | 60.5% (6,306 cells) | 0.158
+
+Agreement percentages are descriptive only. They are not a validation, because most cells are unburned and a high agreement can come from predicting "not burned". The validation metric is decided in Phase 4 (AUC and kappa on the continuous fraction).
+
+4. 2022 DIAGNOSTIC (Console, pasted by user)
+Share of valid pixels with dNBR > 0.10: 0.0189. Share with dNBR > 0.27: 0.0013. This matches the burned share of 0.0012 from the export. So the low 2022 value comes from the data at the 0.27 cut-off. It is not a download or processing error.
+Interpretation: the June to March composite change is small in 2022. Either 2022 was a low-severity year in this window, or the 0.27 threshold misses low-severity understorey burns in pine plantations. The same threshold issue may affect other years.
+Decision: keep 2022 in the test. No exclusion rule was set, and excluding it now because it disagrees with MCD64A1 would be choosing the test set after seeing the results. Report 2022 as a low-burn year in the Sentinel-2 results. The pre-declared sensitivity thresholds (0.20 and 0.35) are reported in Phase 4 alongside the primary 0.27.
+
+5. TEST WINDOW DECISION (Option 3, agreed)
+2016 and 2017 are excluded from the Sentinel-2 independent check because they have too few cloud-free scenes to build reliable composites (2016 pre 2 scenes, post 1; 2017 pre 10, post 3, both below the fallback thresholds needed for a reliable composite). The Sentinel-2 check covers 2018 to 2024.
+Dissertation note (methods, one sentence): "Sentinel-2 reference scars were available for 2018 to 2024; 2016 and 2017 had too few cloud-free scenes to build reliable composites and are excluded from the independent check."
+The MCD64A1 test keeps the full 2016 to 2024 window, unchanged.
+
+6. FILE HOUSEKEEPING
+- The 2016 and 2017 exports that were re-run are excluded from the analysis under decision 5. The earlier 2017 result did not change after re-running, so it cannot be confirmed as replaced; this no longer affects the analysis, because 2017 is excluded. Keep or delete the old files at your discretion. Nothing was deleted by this log.
+
+7. CHECKS PASSED
+- Nine files exist, two bands each.
+- EPSG:32736, 500 m cells, grid origin aligned to multiples of 500 m (matches modelling table keys).
+- Coverage above 0.78 for every season in 2018 to 2024.
+
+8. OPEN ITEMS CARRIED INTO PHASE 3 OR 4
+- Burned-cell rule (how the 500 m fraction becomes a 0/1 label): needs a decision at the start of Phase 3. Proposal: burned if burned_fraction >= 0.10, with 0.05 and 0.25 as pre-declared sensitivity checks.
+- Validation metric (AUC and kappa on the continuous fraction) to be written into Phase 4 before scoring.
+- Low-burn 2022 and the 0.27 threshold sensitivity to be reported in Phase 4.
+
+STATUS: CLOSED. Next phase: Phase 3 (labels).

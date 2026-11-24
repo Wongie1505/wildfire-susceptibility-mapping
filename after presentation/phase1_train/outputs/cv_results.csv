@@ -1,0 +1,14 @@
+model,cv_auc_mean,cv_auc_sd,max_depth,learning_rate,num_leaves
+RandomForest,0.759,0.0123,,,
+XGBoost,0.7561,0.0128,4.0,0.05,
+XGBoost,0.7615,0.0168,4.0,0.1,
+XGBoost,0.771,0.017,6.0,0.05,
+XGBoost,0.7683,0.0189,6.0,0.1,
+XGBoost,0.7766,0.0187,8.0,0.05,
+XGBoost,0.7653,0.0203,8.0,0.1,
+LightGBM,0.7636,0.0131,,0.05,15.0
+LightGBM,0.7666,0.0168,,0.1,15.0
+LightGBM,0.7728,0.0139,,0.05,31.0
+LightGBM,0.7681,0.0168,,0.1,31.0
+LightGBM,0.7768,0.0144,,0.05,63.0
+LightGBM,0.7696,0.0177,,0.1,63.0
