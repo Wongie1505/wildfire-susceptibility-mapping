@@ -1,0 +1,4 @@
+class,label,cells,burned_cell_seasons,burned_share_pct,ratio_to_overall,cells_burned_at_least_once_pct
+1,Low,1473,805,6.1,0.39,37.8
+2,Medium,2156,2935,15.1,0.98,69.1
+3,High,2677,5034,20.9,1.35,80.1
